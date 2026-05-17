@@ -1,0 +1,20 @@
+{
+  "name": "scanvista-monorepo",
+  "version": "1.0.0",
+  "description": "ScanVista — AI-Powered QR to 3D Product Visualizer Workspace",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix client && npm install --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:ai": "python -m uvicorn app.main:app --reload --port 8000 --app-dir ai-service",
+    "dev": "npx concurrently -n \"client,server,ai-service\" -c \"cyan,green,yellow\" \"npm run dev:client\" \"npm run dev:server\" \"npm run dev:ai\"",
+    "start:client": "npm run preview --prefix client",
+    "start:server": "npm start --prefix server",
+    "start:ai": "python -m uvicorn app.main:app --port 8000 --app-dir ai-service",
+    "start": "npx concurrently -n \"client,server,ai-service\" -c \"cyan,green,yellow\" \"npm run start:client\" \"npm run start:server\" \"npm run start:ai\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
