@@ -1,34 +1,34 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/ui/Navbar';
-import Sidebar from './components/ui/Sidebar';
-import Dashboard from './pages/dashboard/Dashboard';
-import ProjectView from './pages/dashboard/ProjectView';
+import Landing from './pages/Landing';
+import ProductViewer from './pages/viewer/ProductViewer';
+import QRScanner from './components/qr/QRScanner';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
-import ProductViewer from './pages/viewer/ProductViewer';
+import DashboardLayout from './components/layout/DashboardLayout';
+import DashboardHome from './pages/dashboard/DashboardHome';
 import AddProduct from './pages/product/AddProduct';
-import EditProduct from './pages/product/EditProduct';
 
 function App() {
   return (
     <Router>
-      <div className="scanvista-app" style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-        <Navbar />
-        <div style={{ display: 'flex', flex: 1 }}>
-          <Sidebar />
-          <main style={{ flex: 1, padding: '2rem' }}>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/project/:id" element={<ProjectView />} />
-              <Route path="/product/add" element={<AddProduct />} />
-              <Route path="/product/edit/:id" element={<EditProduct />} />
-              <Route path="/view/:productId" element={<ProductViewer />} />
-            </Routes>
-          </main>
-        </div>
+      <div className="w-screen h-screen bg-background text-textMain overflow-hidden">
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/view/:productId" element={<ProductViewer />} />
+          <Route path="/scan" element={<QRScanner />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* Dashboard Routes (Post-Login) */}
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<DashboardHome />} />
+            <Route path="new" element={<AddProduct />} />
+            <Route path="models" element={<DashboardHome />} />
+            <Route path="settings" element={<DashboardHome />} />
+          </Route>
+        </Routes>
       </div>
     </Router>
   );

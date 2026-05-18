@@ -75,7 +75,7 @@ CREATE TABLE products (
 CREATE TABLE product_embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    embedding VECTOR(1536),     -- pgvector extension
+    embedding JSONB,     -- pgvector extension not guaranteed on local
     model_version VARCHAR(50),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
