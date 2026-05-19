@@ -1,9 +1,7 @@
-export const routes = {
-  dashboard: '/',
-  login: '/login',
-  register: '/register',
-  projectView: (id) => `/project/${id}`,
-  addProduct: '/product/add',
-  editProduct: (id) => `/product/edit/${id}`,
-  viewer: (id) => `/view/${id}`
-};
+import EditProduct from "./pages/product/EditProduct";
+
+export default function ProductRoutes() {
+  return (
+    <Route path="/edit-product/:id" element={<EditProduct />} />
+  );
+}
