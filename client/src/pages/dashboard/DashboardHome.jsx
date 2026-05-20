@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { fetchProducts } from '../../api/products';
 import { fetchAnalytics } from '../../api/analytics';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Users, 
-  ShoppingBag, 
-  Cpu, 
-  MoreHorizontal, 
-  QrCode, 
-  ArrowUpRight, 
-  Headphones, 
+import {
+  Users,
+  ShoppingBag,
+  Cpu,
+  MoreHorizontal,
+  QrCode,
+  ArrowUpRight,
+  Headphones,
   FolderSync
 } from 'lucide-react';
 
@@ -38,8 +38,8 @@ export default function DashboardHome() {
 
         // Guard against router returning placeholder objects instead of arrays
         const finalProducts = Array.isArray(productsData) ? productsData : [];
-        const finalAnalytics = (analyticsData && typeof analyticsData === 'object' && !analyticsData.message) 
-          ? analyticsData 
+        const finalAnalytics = (analyticsData && typeof analyticsData === 'object' && !analyticsData.message)
+          ? analyticsData
           : {};
 
         setProducts(finalProducts);
@@ -91,23 +91,23 @@ export default function DashboardHome() {
   ];
 
   // Merge backend products with fallback list. Real items show up at the top.
-  const displayProducts = products.length > 0 
+  const displayProducts = products.length > 0
     ? [
-        ...products.map(p => ({
-          id: p.id,
-          name: p.name,
-          category: p.category || 'Product Category',
-          scans: p.scans || Math.floor(Math.random() * 300) + 15,
-          growth: p.growth || `+$${Math.floor(Math.random() * 250) + 40}`,
-          status: p.is_published ? 'Active' : 'Draft',
-          // Human readable difference
-          updatedAt: p.updated_at 
-            ? `${Math.floor((Date.now() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))} days ago`
-            : 'Just now',
-          icon: FolderSync
-        })),
-        ...defaultProducts
-      ]
+      ...products.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category || 'Product Category',
+        scans: p.scans || Math.floor(Math.random() * 300) + 15,
+        growth: p.growth || `+$${Math.floor(Math.random() * 250) + 40}`,
+        status: p.is_published ? 'Active' : 'Draft',
+        // Human readable difference
+        updatedAt: p.updated_at
+          ? `${Math.floor((Date.now() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))} days ago`
+          : 'Just now',
+        icon: FolderSync
+      })),
+      ...defaultProducts
+    ]
     : defaultProducts;
 
   if (loading) {
@@ -124,7 +124,7 @@ export default function DashboardHome() {
       <div className="bg-[#11192b]/50 border border-red-500/20 rounded-2xl p-8 text-center max-w-xl mx-auto">
         <h2 className="text-xl font-bold text-red-400 mb-2">Error Loading Dashboard</h2>
         <p className="text-slate-400 text-sm">{error}</p>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="mt-6 bg-[#00F0FF] text-[#050b14] font-black py-2.5 px-6 rounded-xl hover:bg-[#00D8E6] transition-all duration-200"
         >
@@ -212,11 +212,10 @@ export default function DashboardHome() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all duration-200 ${
-                    activeTab === tab
+                  className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all duration-200 ${activeTab === tab
                       ? 'bg-[#152037] text-white shadow-sm'
                       : 'text-slate-400 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {tab}
                 </button>
@@ -226,8 +225,8 @@ export default function DashboardHome() {
 
           {/* SVG Wave Line Graph */}
           <div className="relative w-full h-[220px]">
-            <svg 
-              viewBox="0 0 800 240" 
+            <svg
+              viewBox="0 0 800 240"
               className="w-full h-full"
               preserveAspectRatio="none"
             >
@@ -245,17 +244,17 @@ export default function DashboardHome() {
               <line x1="0" y1="180" x2="800" y2="180" stroke="#16223b" strokeWidth="1" strokeDasharray="3 3" />
 
               {/* Shaded Area Under Curve */}
-              <path 
-                d="M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80 L 780,240 L 20,240 Z" 
-                fill="url(#chartGlow)" 
+              <path
+                d="M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80 L 780,240 L 20,240 Z"
+                fill="url(#chartGlow)"
               />
 
               {/* Smooth Glow Outline Path */}
-              <path 
-                d="M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80" 
-                fill="none" 
-                stroke="#00F0FF" 
-                strokeWidth="4" 
+              <path
+                d="M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80"
+                fill="none"
+                stroke="#00F0FF"
+                strokeWidth="4"
                 strokeLinecap="round"
                 className="drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]"
               />
@@ -281,7 +280,7 @@ export default function DashboardHome() {
             <h2 className="text-lg font-bold text-slate-100 font-display mb-6">
               Distribution
             </h2>
-            
+
             {/* Category breakdown */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -333,7 +332,7 @@ export default function DashboardHome() {
           <h2 className="text-lg font-bold text-slate-100 font-display">
             Active Products
           </h2>
-          <select 
+          <select
             className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 text-xs font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:border-[#00F0FF] transition-all cursor-pointer"
             defaultValue="All Categories"
           >
@@ -361,8 +360,8 @@ export default function DashboardHome() {
               {displayProducts.map((product) => {
                 const ItemIcon = product.icon;
                 return (
-                  <tr 
-                    key={product.id} 
+                  <tr
+                    key={product.id}
                     className="border-b border-[#16223b]/50 hover:bg-[#11192b]/40 text-slate-300 transition-all duration-150 group"
                   >
                     {/* Name & Subtitle */}
@@ -395,9 +394,8 @@ export default function DashboardHome() {
                     {/* Status */}
                     <td className="py-4">
                       <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          product.status === 'Active' ? 'bg-[#10b981]' : 'bg-slate-500'
-                        }`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${product.status === 'Active' ? 'bg-[#10b981]' : 'bg-slate-500'
+                          }`} />
                         <span className="text-xs font-semibold text-slate-300">
                           {product.status}
                         </span>
@@ -411,7 +409,7 @@ export default function DashboardHome() {
 
                     {/* Actions */}
                     <td className="py-4 text-center">
-                      <button 
+                      <button
                         onClick={() => navigate(`/edit-product/${product.id}`)}
                         className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-[#1a263f] transition-all"
                       >
@@ -427,7 +425,7 @@ export default function DashboardHome() {
       </div>
 
       {/* Floating QR Scanner Button */}
-      <button 
+      <button
         onClick={() => navigate('/viewer')}
         className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 w-14 h-14 bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.35)] hover:shadow-[0_0_30px_rgba(0,240,255,0.65)] hover:scale-105 transition-all duration-300 z-50 group"
         title="Open QR Code Scanner"
