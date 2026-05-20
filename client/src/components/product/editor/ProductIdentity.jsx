@@ -12,7 +12,7 @@ export default function ProductIdentity({
   };
 
   return (
-    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-6">
+    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-4 sm:p-6">
 
       <h2 className="text-xl font-semibold mb-6">
         Identity
@@ -53,7 +53,7 @@ export default function ProductIdentity({
         </div>
 
         {/* 3-col GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
           <div>
             <label className="text-sm text-slate-300">Brand</label>

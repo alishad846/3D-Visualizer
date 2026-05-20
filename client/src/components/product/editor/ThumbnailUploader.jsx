@@ -24,7 +24,7 @@ export default function ThumbnailUploader({ images = [], onImagesChange }) {
     };
 
     return (
-        <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-6">
+        <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-4 sm:p-6">
 
             <h2 className="text-xl font-semibold mb-6">
                 Thumbnails

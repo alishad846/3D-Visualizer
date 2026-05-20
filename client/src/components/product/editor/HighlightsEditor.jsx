@@ -52,7 +52,7 @@ export default function HighlightsEditor({
   }, [highlights]);
 
   return (
-    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-6">
+    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-4 sm:p-6">
 
       <h2 className="text-xl font-semibold mb-6">
         Highlights
@@ -64,33 +64,32 @@ export default function HighlightsEditor({
 
           <div
             key={index}
-            className="flex items-center justify-between gap-4 p-4 rounded-xl border border-cyan-400/10 bg-white/[0.03]"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-4 rounded-xl border border-cyan-400/10 bg-white/[0.03]"
           >
 
             {/* TEXT + DOT */}
-            <div className="flex items-center gap-3 flex-1">
+            <div className="flex items-center gap-3 flex-1 w-full">
 
               <div className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
 
-              {editingIndex === index ? (
-                <input
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && saveEdit()}
-                  className="
-                    flex-1 bg-[#0b1622] border border-cyan-500/20
-                    rounded-lg px-3 py-2 outline-none focus:border-cyan-400
-                  "
-                  autoFocus
-                />
-              ) : (
-                <p className="text-slate-200 truncate">{item}</p>
-              )}
+               {editingIndex === index ? (
+                 <input
+                   value={editedText}
+                   onChange={(e) => setEditedText(e.target.value)}
+                   onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                   className="
+                     flex-1 bg-[#0b1622] border border-cyan-500/20
+                     rounded-lg px-3 py-2 outline-none focus:border-cyan-400
+                   "
+                 />
+               ) : (
+                 <p className="text-slate-200 truncate">{item}</p>
+               )}
 
             </div>
 
             {/* ACTIONS */}
-            <div className="flex gap-3 text-slate-400 shrink-0">
+            <div className="flex gap-3 text-slate-400 shrink-0 self-end sm:self-auto">
 
               {editingIndex === index ? (
                 <FiCheck

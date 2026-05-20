@@ -61,7 +61,7 @@ export default function SpecificationsEditor({
   }, []);
 
   return (
-    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-6">
+    <div className="bg-white/5 border border-cyan-400/20 rounded-2xl p-4 sm:p-6">
 
       <h2 className="text-xl font-semibold mb-6">
         Specifications
@@ -73,8 +73,8 @@ export default function SpecificationsEditor({
           <div
             key={index}
             className="
-              grid grid-cols-[1fr_1fr_auto]
-              gap-4 items-center
+              flex flex-col sm:grid sm:grid-cols-[1fr_1fr_auto]
+              gap-3 sm:gap-4 sm:items-center p-4 sm:p-0 border border-cyan-400/10 sm:border-transparent rounded-xl sm:rounded-none bg-black/20 sm:bg-transparent
             "
           >
             {editingIndex === index ? (
@@ -86,10 +86,9 @@ export default function SpecificationsEditor({
                   }
                   onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                   className="
-                    h-12 rounded-lg px-4 bg-[#0b1622]
-                    border border-cyan-500/30 outline-none focus:border-cyan-400
-                  "
-                  autoFocus
+                     h-12 rounded-lg px-4 bg-[#0b1622]
+                     border border-cyan-500/30 outline-none focus:border-cyan-400
+                   "
                 />
                 <input
                   value={editedSpec.value}
@@ -124,7 +123,7 @@ export default function SpecificationsEditor({
               </>
             )}
 
-            <div className="flex gap-3 text-slate-400">
+            <div className="flex gap-3 text-slate-400 justify-end sm:justify-start mt-2 sm:mt-0">
 
               {editingIndex === index ? (
                 <FiCheck

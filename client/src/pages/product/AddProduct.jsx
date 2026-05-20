@@ -153,13 +153,13 @@ export default function AddProduct() {
 
       {/* MAIN */}
 
-      <main className="
-      max-w-7xl
-      mx-auto
-      px-6
-      py-8
-      pb-56
-      ">
+       <main className="
+       max-w-7xl
+       mx-auto
+       px-6
+       py-8
+       pb-8
+       ">
 
         <div className="mb-10">
 

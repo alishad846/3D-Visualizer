@@ -1,7 +1,5 @@
 // ScanVista API Client for analytics
-import {routes} from '../routes';
-
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { BASE_URL } from './config';
 
 export const fetchAnalytics = async () => {
   const response = await fetch(`${BASE_URL}/analytics`);

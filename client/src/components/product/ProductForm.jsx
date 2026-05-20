@@ -113,7 +113,7 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
         "
       />
 
-      <div className="relative z-10 p-8 lg:p-10">
+      <div className="relative z-10 p-8 lg:p-10 pb-32 lg:pb-32">
 
         {/* PAGE TITLE */}
         <div className="mb-10">
@@ -158,35 +158,63 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
 
             <div
               className="
-                min-h-[320px] rounded-[28px] border border-dashed
-                border-cyan-400/20 bg-gradient-to-b from-cyan-400/10 to-transparent
-                flex flex-col items-center justify-center p-6
-              "
+                 min-h-[320px] rounded-[28px] border border-dashed
+                 border-cyan-400/20 bg-gradient-to-b from-cyan-400/10 to-transparent
+                 flex flex-col items-center justify-center p-6
+               "
             >
               <div className="text-7xl mb-4">📦</div>
               <h4 className="text-2xl font-bold">3D GLB Model</h4>
-              <p className="text-slate-400 mt-2">
-                {product.modelUrl ? product.modelUrl.split("/").pop() : "No model uploaded"}
-              </p>
+              <div className="flex flex-col items-center mt-4">
+                {product.modelUrl ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="text-green-400">✓</span>
+                      <span className="text-slate-400">
+                        {product.modelUrl.split("/").pop()}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        // Reset model URL to allow re-upload
+                        setModelUrl("");
+                      }}
+                      className="
+                         mt-3 px-4 py-2 rounded-lg
+                         border border-cyan-400/30 text-cyan-300
+                         hover:bg-cyan-400/10 transition
+                       "
+                    >
+                      Replace Model
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-slate-400 mt-2">
+                      No model uploaded
+                    </p>
 
-              <div className="flex gap-4 mt-8">
-                <label
-                  className="
-                    px-7 py-3 rounded-2xl bg-cyan-400 text-black font-bold
-                    cursor-pointer hover:scale-105 transition
-                  "
-                >
-                  Upload Model
-                  <input
-                    type="file"
-                    hidden
-                    accept=".glb,.gltf"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) setModelUrl(URL.createObjectURL(file));
-                    }}
-                  />
-                </label>
+                    <div className="flex gap-4 mt-8">
+                      <label
+                        className="
+                           px-7 py-3 rounded-2xl bg-cyan-400 text-black font-bold
+                           cursor-pointer hover:scale-105 transition
+                         "
+                      >
+                        Upload Model
+                        <input
+                          type="file"
+                          hidden
+                          accept=".glb,.gltf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) setModelUrl(URL.createObjectURL(file));
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
