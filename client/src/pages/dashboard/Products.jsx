@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { fetchProducts } from '../../api/products';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  SlidersHorizontal, 
-  ArrowUpDown, 
-  Grid, 
-  List, 
-  ChevronLeft, 
-  ChevronRight, 
-  Box, 
-  Image as ImageIcon, 
-  FileCode, 
+import {
+  Search,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Grid,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Box,
+  Image as ImageIcon,
+  FileCode,
   MoreHorizontal,
   Plus
 } from 'lucide-react';
@@ -21,6 +21,11 @@ export default function Products() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,7 +36,7 @@ export default function Products() {
           console.warn('Failed to load products, using default library only:', e);
           return [];
         });
-        
+
         const finalProducts = Array.isArray(data) ? data : [];
         setProducts(finalProducts);
       } catch (err) {
@@ -90,24 +95,59 @@ export default function Products() {
   // Dynamic products mapped from DB
   const mappedRealAssets = products.map((p) => ({
     id: p.id,
-    name: p.name.includes('.') ? p.name : `${p.name.replace(/\s+/g, '_')}_V1.glb`,
+    name: p.name && p.name.includes('.') ? p.name : `${(p.name || '').replace(/\s+/g, '_')}_V1.glb`,
     subBadge: '3D MODEL',
     badgeStyle: 'text-[#00F0FF] bg-[#00F0FF]/10',
     type: 'GLB Binary',
     size: p.price ? `${(parseFloat(p.price) / 10).toFixed(1)} MB` : '12.4 MB',
-    lastModified: new Date(p.updated_at || p.created_at).toLocaleDateString('en-US', {
+    lastModified: new Date(p.updated_at || p.created_at || Date.now()).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric'
     }),
     icon: Box,
-    isReal: true
+    isReal: true,
+    timestamp: new Date(p.updated_at || p.created_at || Date.now()).getTime()
   }));
 
-  // Merge so real products are listed first, followed by default mockup files
-  const displayAssets = [...mappedRealAssets, ...defaultAssets].filter(asset => 
-    asset.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Merge and filter
+  let localSharedAsset = null;
+  try {
+    const rawLocal = localStorage.getItem("scanvista-product");
+    if (rawLocal) {
+      const p = JSON.parse(rawLocal);
+      localSharedAsset = {
+        id: 'local-shared-1',
+        name: p.name ? `${p.name.replace(/\s+/g, '_')}.glb` : 'Shared_Product.glb',
+        subBadge: '3D MODEL',
+        badgeStyle: 'text-[#00F0FF] bg-[#00F0FF]/10',
+        type: 'GLB Binary',
+        size: '42.5 MB',
+        lastModified: 'Just now',
+        icon: Box,
+        isReal: true,
+      };
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  let baseAssets = [...mappedRealAssets, ...defaultAssets];
+  if (localSharedAsset) {
+    baseAssets.unshift(localSharedAsset); // Add to top
+  }
+
+  let displayAssets = baseAssets
+    .filter(asset => asset.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(asset => activeFilter === 'All' || asset.subBadge === activeFilter);
+    
+  if (sortOrder === 'oldest') {
+    displayAssets.reverse(); // simple mock sort
+  }
+
+  // Pagination
+  const totalPages = Math.ceil(displayAssets.length / itemsPerPage);
+  const paginatedAssets = displayAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-fade-in">
@@ -167,40 +207,59 @@ export default function Products() {
               type="text"
               placeholder="Search assets..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full bg-[#11192b] border border-[#1d2d4a] rounded-xl pl-11 pr-5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              Filter
-            </button>
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end relative">
+            <div className="relative">
+              <button 
+                onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+                className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Filter {activeFilter !== 'All' && `(${activeFilter})`}
+              </button>
+              
+              {showFilterDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#11192b] border border-[#1d2d4a] rounded-xl shadow-xl z-50 overflow-hidden">
+                  {['All', '3D MODEL', 'TEXTURE', 'BRAND'].map(filter => (
+                    <button 
+                      key={filter}
+                      onClick={() => { setActiveFilter(filter); setShowFilterDropdown(false); setCurrentPage(1); }}
+                      className={`w-full text-left px-4 py-3 text-xs font-semibold transition-colors ${activeFilter === filter ? 'bg-[#1c2a44] text-[#00F0FF]' : 'text-slate-300 hover:bg-white/5'}`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+              className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
               <ArrowUpDown className="w-3.5 h-3.5" />
-              Sort
+              Sort ({sortOrder === 'newest' ? 'New' : 'Old'})
             </button>
 
             {/* Layout Toggle Buttons */}
             <div className="flex bg-[#11192b] border border-[#1d2d4a] rounded-xl p-1">
-              <button 
+              <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition-all ${
-                  viewMode === 'grid' 
-                    ? 'bg-[#1c2a44] text-[#00F0FF]' 
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid'
+                    ? 'bg-[#1c2a44] text-[#00F0FF]'
                     : 'text-slate-500 hover:text-slate-300'
-                }`}
+                  }`}
               >
                 <Grid className="w-4 h-4" />
               </button>
-              <button 
+              <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-lg transition-all ${
-                  viewMode === 'list' 
-                    ? 'bg-[#1c2a44] text-[#00F0FF]' 
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list'
+                    ? 'bg-[#1c2a44] text-[#00F0FF]'
                     : 'text-slate-500 hover:text-slate-300'
-                }`}
+                  }`}
               >
                 <List className="w-4 h-4" />
               </button>
@@ -223,20 +282,19 @@ export default function Products() {
                 </tr>
               </thead>
               <tbody>
-                {displayAssets.map((asset) => {
+                {paginatedAssets.map((asset) => {
                   const FileIcon = asset.icon;
                   return (
-                    <tr 
-                      key={asset.id} 
+                    <tr
+                      key={asset.id}
                       className="border-b border-[#16223b]/50 hover:bg-[#11192b]/40 text-slate-300 transition-all duration-150 group"
                     >
                       <td className="py-4">
                         <div className="flex items-center gap-3.5">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${
-                            asset.subBadge === '3D MODEL'
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${asset.subBadge === '3D MODEL'
                               ? 'bg-[#00F0FF]/5 border-[#00F0FF]/15 text-[#00F0FF] group-hover:border-[#00F0FF]/30'
                               : 'bg-[#11192b] border-[#1d2d4a] text-slate-400'
-                          }`}>
+                            }`}>
                             <FileIcon className="w-4.5 h-4.5" />
                           </div>
                           <div>
@@ -257,7 +315,7 @@ export default function Products() {
                       </td>
                       <td className="py-4 text-sm font-semibold text-slate-500">{asset.lastModified}</td>
                       <td className="py-4 text-center">
-                        <button 
+                        <button
                           onClick={() => asset.isReal && navigate(`/edit-product/${asset.id}`)}
                           className="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-[#1a263f] transition-all"
                         >
@@ -273,19 +331,18 @@ export default function Products() {
         ) : (
           /* Grid Mode cards */
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {displayAssets.map((asset) => {
+            {paginatedAssets.map((asset) => {
               const FileIcon = asset.icon;
               return (
-                <div 
+                <div
                   key={asset.id}
                   className="bg-[#0b101f] border border-[#1e2e4f]/70 rounded-xl p-5 hover:border-[#00F0FF]/30 transition-all group flex flex-col justify-between h-40"
                 >
                   <div className="flex items-start justify-between">
-                    <div className={`p-2.5 rounded-lg border ${
-                      asset.subBadge === '3D MODEL'
+                    <div className={`p-2.5 rounded-lg border ${asset.subBadge === '3D MODEL'
                         ? 'bg-[#00F0FF]/5 border-[#00F0FF]/25 text-[#00F0FF]'
                         : 'bg-[#11192b] border-[#1d2d4a] text-slate-400'
-                    }`}>
+                      }`}>
                       <FileIcon className="w-5 h-5" />
                     </div>
                     <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${asset.badgeStyle}`}>
@@ -309,38 +366,62 @@ export default function Products() {
         {/* Pagination & Inner Footer inside main container card */}
         <div className="mt-8 pt-6 border-t border-[#1a253c]/40 flex flex-col lg:flex-row items-center justify-between gap-6">
           <p className="text-xs font-semibold text-slate-500 order-2 lg:order-1">
-            Showing 1 to {displayAssets.length} of {(1284 + products.length).toLocaleString()} assets
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, displayAssets.length)} of {displayAssets.length} assets
           </p>
 
           {/* Page buttons */}
           <div className="flex items-center gap-1.5 order-1 lg:order-2">
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all">
+            <button 
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white disabled:opacity-50 disabled:hover:text-slate-400 p-2 rounded-lg transition-all"
+            >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <button className="bg-[#00F0FF]/10 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-bold w-8 h-8 rounded-lg">
-              1
-            </button>
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white text-xs font-semibold w-8 h-8 rounded-lg transition-all">
-              2
-            </button>
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white text-xs font-semibold w-8 h-8 rounded-lg transition-all">
-              3
-            </button>
-            <span className="text-slate-600 px-1 text-xs">...</span>
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white text-xs font-semibold w-8 h-8 rounded-lg transition-all">
-              321
-            </button>
-            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all">
+            
+            {Array.from({ length: Math.min(3, totalPages) }, (_, i) => i + 1).map(page => (
+              <button 
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={currentPage === page 
+                  ? "bg-[#00F0FF]/10 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-bold w-8 h-8 rounded-lg transition-all"
+                  : "bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white text-xs font-semibold w-8 h-8 rounded-lg transition-all"
+                }
+              >
+                {page}
+              </button>
+            ))}
+            
+            {totalPages > 3 && (
+              <>
+                <span className="text-slate-600 px-1 text-xs">...</span>
+                <button 
+                  onClick={() => setCurrentPage(totalPages)}
+                  className={currentPage === totalPages 
+                    ? "bg-[#00F0FF]/10 border border-[#00F0FF]/40 text-[#00F0FF] text-xs font-bold w-8 h-8 rounded-lg transition-all"
+                    : "bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white text-xs font-semibold w-8 h-8 rounded-lg transition-all"
+                  }
+                >
+                  {totalPages}
+                </button>
+              </>
+            )}
+            
+            <button 
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white disabled:opacity-50 disabled:hover:text-slate-400 p-2 rounded-lg transition-all"
+            >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* Quick Footer Links */}
           <div className="flex gap-4 text-[11px] font-semibold text-slate-500 order-3">
-            <a href="#" className="hover:text-slate-400 transition-colors">Help Center</a>
-            <a href="#" className="hover:text-slate-400 transition-colors">Feedback</a>
-            <a href="#" className="hover:text-slate-400 transition-colors">Terms</a>
-            <span>© 2023 ScanVista Inc.</span>
+            <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Help Center</a>
+            <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Feedback</a>
+            <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Terms</a>
+            <span>© 2026 ScanVista Inc.</span>
           </div>
         </div>
       </div>

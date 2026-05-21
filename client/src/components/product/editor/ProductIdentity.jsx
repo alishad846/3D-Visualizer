@@ -4,6 +4,7 @@ export default function ProductIdentity({
   model = "",
   category = "",
   description = "",
+  errors = {},
   onChange: onFieldChange,
 }) {
 
@@ -28,12 +29,13 @@ export default function ProductIdentity({
             value={name}
             onChange={handleChange("name")}
             placeholder="Sony WH-1000XM5"
-            className="
-              w-full mt-2 bg-[#0b1622] border border-cyan-500/30
+            className={`
+              w-full mt-2 bg-[#0b1622] border 
               rounded-lg px-4 py-3 outline-none
-              focus:border-cyan-400
-            "
+              ${errors.name ? 'border-red-500/50 focus:border-red-500' : 'border-cyan-500/30 focus:border-cyan-400'}
+            `}
           />
+          {errors.name && <p className="text-red-400 text-xs mt-1 font-semibold">details have to be filled</p>}
         </div>
 
         {/* MODEL + DESCRIPTION */}
@@ -44,12 +46,13 @@ export default function ProductIdentity({
             onChange={handleChange("description")}
             placeholder="Brief product description..."
             rows={3}
-            className="
-              w-full mt-2 bg-[#0b1622] border border-cyan-500/30
-              rounded-lg px-4 py-3 outline-none
-              focus:border-cyan-400 resize-none
-            "
+            className={`
+              w-full mt-2 bg-[#0b1622] border 
+              rounded-lg px-4 py-3 outline-none resize-none
+              ${errors.description ? 'border-red-500/50 focus:border-red-500' : 'border-cyan-500/30 focus:border-cyan-400'}
+            `}
           />
+          {errors.description && <p className="text-red-400 text-xs mt-1 font-semibold">details have to be filled</p>}
         </div>
 
         {/* 3-col GRID */}
@@ -62,8 +65,9 @@ export default function ProductIdentity({
               value={brand}
               onChange={handleChange("brand")}
               placeholder="Sony"
-              className="w-full mt-2 bg-[#0b1622] border border-cyan-500/30 rounded-lg px-4 py-3 outline-none focus:border-cyan-400"
+              className={`w-full mt-2 bg-[#0b1622] border rounded-lg px-4 py-3 outline-none ${errors.brand ? 'border-red-500/50 focus:border-red-500' : 'border-cyan-500/30 focus:border-cyan-400'}`}
             />
+            {errors.brand && <p className="text-red-400 text-xs mt-1 font-semibold">details have to be filled</p>}
           </div>
 
           <div>
@@ -73,8 +77,9 @@ export default function ProductIdentity({
               value={model}
               onChange={handleChange("model")}
               placeholder="WH-1000XM5"
-              className="w-full mt-2 bg-[#0b1622] border border-cyan-500/30 rounded-lg px-4 py-3 outline-none focus:border-cyan-400"
+              className={`w-full mt-2 bg-[#0b1622] border rounded-lg px-4 py-3 outline-none ${errors.model ? 'border-red-500/50 focus:border-red-500' : 'border-cyan-500/30 focus:border-cyan-400'}`}
             />
+            {errors.model && <p className="text-red-400 text-xs mt-1 font-semibold">details have to be filled</p>}
           </div>
 
           <div>

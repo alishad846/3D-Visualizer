@@ -45,6 +45,7 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
   const [product, setProduct] = useState(
     propInitial || BLANK_PRODUCT
   );
+  const [errors, setErrors] = useState({});
 
   // When navigating from EditProduct with loading, sync state
   useEffect(() => {
@@ -85,8 +86,22 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
   // SAVE
   // ---------------------------------------------------------------
   const handleSave = useCallback(() => {
+    const newErrors = {
+      name: !product.name,
+      brand: !product.brand,
+      model: !product.model,
+      description: !product.description,
+      modelUrl: !product.modelUrl,
+    };
+    
+    setErrors(newErrors);
+
+    if (Object.values(newErrors).some((err) => err)) {
+      return; // Stop if there are errors
+    }
+
     localStorage.setItem("scanvista-product", JSON.stringify(product));
-    navigate("/viewer");
+    navigate("/product-success");
   }, [product, navigate]);
 
   const handleCancel = useCallback(() => {
@@ -143,6 +158,7 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
             model={product.model}
             category={product.category}
             description={product.description}
+            errors={errors}
             onChange={updateIdentity}
           />
         </div>
@@ -157,11 +173,11 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
             <h3 className="text-3xl font-bold mb-8">Visual Assets</h3>
 
             <div
-              className="
+              className={`
                  min-h-[320px] rounded-[28px] border border-dashed
-                 border-cyan-400/20 bg-gradient-to-b from-cyan-400/10 to-transparent
                  flex flex-col items-center justify-center p-6
-               "
+                 ${errors.modelUrl ? 'border-red-500 bg-red-500/10' : 'border-cyan-400/20 bg-gradient-to-b from-cyan-400/10 to-transparent'}
+               `}
             >
               <div className="text-7xl mb-4">📦</div>
               <h4 className="text-2xl font-bold">3D GLB Model</h4>
@@ -213,6 +229,7 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
                         />
                       </label>
                     </div>
+                    {errors.modelUrl && <p className="text-red-400 font-bold mt-4 text-sm">A 3D GLB model is required</p>}
                   </>
                 )}
               </div>

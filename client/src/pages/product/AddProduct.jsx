@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import ProductForm from "../../components/product/ProductForm";
 
 export default function AddProduct() {
+  const navigate = useNavigate();
 
   return (
 
@@ -68,7 +71,13 @@ export default function AddProduct() {
           {/* LEFT */}
 
           <div className="flex items-center gap-4">
-
+            
+            <button 
+              onClick={() => navigate(-1)}
+              className="p-2 mr-2 rounded-full hover:bg-white/10 transition-colors text-slate-300 hover:text-white flex items-center justify-center border border-white/5"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
             <div className="
             w-12
             h-12

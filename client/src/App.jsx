@@ -8,9 +8,13 @@ import Login from "./pages/auth/Login";
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import Products from "./pages/dashboard/Products";
-import Profile from "./pages/dashboard/Profile";
+import Settings from "./pages/dashboard/Settings";
 import ProjectView from "./pages/dashboard/ProjectView";
 import Favorites from "./pages/dashboard/Favorites";
+import Landing from "./pages/Landing";
+import Showcase from "./pages/Showcase";
+import Scan from "./pages/Scan";
+import ProductSuccess from "./pages/product/ProductSuccess";
 
 export default function App() {
   return (
@@ -23,7 +27,22 @@ export default function App() {
       <Routes>
         <Route
           path="/"
-          element={<Navigate to="/register" replace />}
+          element={<Landing />}
+        />
+
+        <Route
+          path="/showcase"
+          element={<Showcase />}
+        />
+
+        <Route
+          path="/scan"
+          element={<Scan />}
+        />
+
+        <Route
+          path="/product-success"
+          element={<ProductSuccess />}
         />
 
         <Route
@@ -42,7 +61,7 @@ export default function App() {
         >
           <Route index element={<DashboardHome />} />
           <Route path="products" element={<Products />} />
-          <Route path="profile" element={<Profile />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="project-view" element={<ProjectView />} />
           <Route path="favorites" element={<Favorites />} />
         </Route>

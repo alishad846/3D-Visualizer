@@ -191,11 +191,11 @@ export default function Favorites() {
 
       {/* Footer */}
       <footer className="pt-8 border-t border-[#1e2e4f]/30 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-        <p>© 2023 ScanVista Inc.</p>
+        <p>© 2026 ScanVista Inc.</p>
         <div className="flex gap-6">
-          <a href="#" className="hover:text-slate-400 transition-colors">Help Center</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Feedback</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Terms of Service</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Help Center</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Feedback</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Terms of Service</a>
         </div>
       </footer>
     </div>

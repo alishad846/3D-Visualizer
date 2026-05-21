@@ -19,6 +19,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('Last Month');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('All Categories');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -90,8 +91,7 @@ export default function DashboardHome() {
     }
   ];
 
-  // Merge backend products with fallback list. Real items show up at the top.
-  const displayProducts = products.length > 0
+  const displayProducts = (products.length > 0
     ? [
       ...products.map(p => ({
         id: p.id,
@@ -108,7 +108,8 @@ export default function DashboardHome() {
       })),
       ...defaultProducts
     ]
-    : defaultProducts;
+    : defaultProducts)
+    .filter(p => productCategoryFilter === 'All Categories' || p.category.includes(productCategoryFilter));
 
   if (loading) {
     return (
@@ -213,8 +214,8 @@ export default function DashboardHome() {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all duration-200 ${activeTab === tab
-                      ? 'bg-[#152037] text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                    ? 'bg-[#152037] text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                     }`}
                 >
                   {tab}
@@ -251,26 +252,41 @@ export default function DashboardHome() {
 
               {/* Smooth Glow Outline Path */}
               <path
-                d="M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80"
+                d={activeTab === 'Last Month' 
+                  ? "M 20,180 C 150,180 230,100 320,120 C 440,140 500,205 620,180 C 700,163 740,75 780,80"
+                  : "M 20,150 C 100,200 200,90 300,140 C 450,80 500,220 620,140 C 700,100 740,120 780,60"
+                }
                 fill="none"
                 stroke="#00F0FF"
                 strokeWidth="4"
                 strokeLinecap="round"
-                className="drop-shadow-[0_0_8px_rgba(0,240,255,0.5)]"
+                className="drop-shadow-[0_0_8px_rgba(0,240,255,0.5)] transition-all duration-700"
               />
             </svg>
           </div>
 
           {/* X Axis Months */}
           <div className="flex justify-between items-center text-xs font-semibold text-slate-500 mt-4 px-2">
-            <span>Jan</span>
-            <span>Feb</span>
-            <span>Mar</span>
-            <span>Apr</span>
-            <span>May</span>
-            <span>Jun</span>
-            <span>Jul</span>
-            <span>Aug</span>
+            {activeTab === 'Last Month' ? (
+              <>
+                <span>Jan</span>
+                <span>Feb</span>
+                <span>Mar</span>
+                <span>Apr</span>
+                <span>May</span>
+                <span>Jun</span>
+                <span>Jul</span>
+                <span>Aug</span>
+              </>
+            ) : (
+              <>
+                <span>2019</span>
+                <span>2020</span>
+                <span>2021</span>
+                <span>2022</span>
+                <span>2023</span>
+              </>
+            )}
           </div>
         </div>
 
@@ -333,13 +349,14 @@ export default function DashboardHome() {
             Active Products
           </h2>
           <select
+            value={productCategoryFilter}
+            onChange={(e) => setProductCategoryFilter(e.target.value)}
             className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 text-xs font-semibold py-1.5 px-3 rounded-lg focus:outline-none focus:border-[#00F0FF] transition-all cursor-pointer"
-            defaultValue="All Categories"
           >
-            <option>All Categories</option>
-            <option>Premium Audio</option>
-            <option>Electronics</option>
-            <option>Fashion</option>
+            <option value="All Categories">All Categories</option>
+            <option value="Premium Audio">Premium Audio</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Fashion">Fashion</option>
           </select>
         </div>
 

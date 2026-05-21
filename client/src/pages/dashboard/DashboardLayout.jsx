@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  User, 
-  Heart, 
-  Layers, 
-  BarChart3, 
-  Star, 
-  Settings, 
-  Search, 
-  Bell, 
-  HelpCircle, 
+import {
+  LayoutDashboard,
+  User,
+  Heart,
+  Layers,
+  BarChart3,
+  Star,
+  Settings,
+  Search,
+  Bell,
+  HelpCircle,
   Plus,
   Menu,
   X,
@@ -24,7 +24,6 @@ export default function DashboardLayout() {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: User, label: 'Profile', path: '/dashboard/profile' },
     { icon: Heart, label: 'Favorites', path: '/dashboard/favorites' },
     { icon: Layers, label: 'Contents', path: '/dashboard/products' }, // Maps to products
     { icon: BarChart3, label: 'Analysis', path: '/dashboard/project-view' }, // Maps to project-view / analytics
@@ -59,19 +58,17 @@ export default function DashboardLayout() {
                 <Link
                   key={item.label}
                   to={item.path}
-                  className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group ${
-                    isActive 
-                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold' 
+                  className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group ${isActive
+                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   {/* Active highlight line on the left */}
                   {isActive && (
                     <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
                   )}
-                  <item.icon className={`w-[18px] h-[18px] transition-colors ${
-                    isActive ? 'text-[#00F0FF]' : 'text-slate-400 group-hover:text-slate-200'
-                  }`} />
+                  <item.icon className={`w-[18px] h-[18px] transition-colors ${isActive ? 'text-[#00F0FF]' : 'text-slate-400 group-hover:text-slate-200'
+                    }`} />
                   {item.label}
                 </Link>
               );
@@ -82,7 +79,7 @@ export default function DashboardLayout() {
         {/* Sidebar Footer */}
         <div className="space-y-6">
           {/* Upgrade Plan Card */}
-          <button 
+          <button
             className="w-full bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_0_20px_rgba(0,240,255,0.2)] hover:shadow-[0_0_25px_rgba(0,240,255,0.35)] transform hover:-translate-y-0.5"
             onClick={() => alert('Upgrade to Creator Pro coming soon!')}
           >
@@ -92,9 +89,9 @@ export default function DashboardLayout() {
 
           {/* User Profile Block */}
           <div className="flex items-center gap-3 pt-4 border-t border-[#1a253c]">
-            <img 
-              src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80&q=80" 
-              alt="Alex Chen" 
+            <img
+              src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80&q=80"
+              alt="Alex Chen"
               className="w-10 h-10 rounded-full object-cover border border-[#00F0FF]/25 shadow-[0_0_10px_rgba(0,240,255,0.1)]"
             />
             <div className="overflow-hidden">
@@ -108,12 +105,12 @@ export default function DashboardLayout() {
       {/* Mobile Sidebar overlay */}
       {mobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div 
+          <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
           <aside className="relative flex flex-col w-64 bg-[#0b101e] border-r border-[#1a253c] h-full p-6 justify-between animate-slide-in">
-            <button 
+            <button
               className="absolute top-5 right-5 text-slate-400 hover:text-white p-1"
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -137,11 +134,10 @@ export default function DashboardLayout() {
                     <Link
                       key={item.label}
                       to={item.path}
-                      className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group ${
-                        isActive 
-                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold' 
+                      className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group ${isActive
+                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
                           : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`}
+                        }`}
                     >
                       {isActive && (
                         <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
@@ -155,7 +151,7 @@ export default function DashboardLayout() {
             </div>
 
             <div className="space-y-6">
-              <button 
+              <button
                 className="w-full bg-[#00F0FF] text-[#050b14] font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)]"
                 onClick={() => {
                   setMobileMenuOpen(false);
@@ -167,9 +163,9 @@ export default function DashboardLayout() {
               </button>
 
               <div className="flex items-center gap-3 pt-4 border-t border-[#1a253c]">
-                <img 
-                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80&q=80" 
-                  alt="Alex Chen" 
+                <img
+                  src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80&q=80"
+                  alt="Alex Chen"
                   className="w-10 h-10 rounded-full object-cover border border-[#00F0FF]/25"
                 />
                 <div>
@@ -188,7 +184,7 @@ export default function DashboardLayout() {
         <header className="h-20 bg-[#070b13]/80 backdrop-blur-md border-b border-[#1a253c] sticky top-0 z-40 px-6 lg:px-10 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 flex-1">
             {/* Hamburger for mobile */}
-            <button 
+            <button
               className="lg:hidden p-2 -ml-2 text-slate-400 hover:text-white transition-colors"
               onClick={() => setMobileMenuOpen(true)}
             >
@@ -207,9 +203,9 @@ export default function DashboardLayout() {
             {/* Search Pill Input */}
             <div className="relative max-w-md w-full md:ml-4">
               <Search className="w-4.5 h-4.5 text-slate-400 absolute left-4 top-1/2 transform -translate-y-1/2" />
-              <input 
-                type="text" 
-                placeholder="Search projects..." 
+              <input
+                type="text"
+                placeholder="Search projects..."
                 className="w-full bg-[#11192b] border border-[#1d2d4a] rounded-full pl-11 pr-5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all"
               />
             </div>
@@ -229,7 +225,7 @@ export default function DashboardLayout() {
             </button>
 
             {/* + New Project Button */}
-            <button 
+            <button
               onClick={handleNewProject}
               className="bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-2.5 px-5 rounded-full text-xs uppercase tracking-wider flex items-center gap-2 transition-all duration-300 shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:shadow-[0_0_20px_rgba(0,240,255,0.4)]"
             >

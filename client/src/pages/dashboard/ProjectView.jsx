@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, 
   TrendingUp, 
@@ -8,23 +8,57 @@ import {
   Maximize2, 
   Search, 
   Download, 
-  Plus 
+  Plus,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 
 export default function ProjectView() {
   const [timeRange, setTimeRange] = useState('Last 30 Days');
   const [comparison, setComparison] = useState('Compare to Prev.');
+  const [toastMessage, setToastMessage] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  const handleDropdownChange = (setter, value) => {
+    setter(value);
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast('Data refreshed successfully');
+    }, 1000);
+  };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-fade-in relative pb-16">
       
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-50 bg-[#00F0FF] text-black font-bold px-6 py-3 rounded-xl shadow-[0_0_20px_rgba(0,240,255,0.4)] animate-slide-in flex items-center gap-2">
+          <Check className="w-5 h-5" />
+          {toastMessage}
+        </div>
+      )}
+
+      {/* Global Refresh Overlay */}
+      {isRefreshing && (
+        <div className="absolute inset-0 z-40 bg-[#070b13]/50 backdrop-blur-[2px] rounded-2xl flex items-center justify-center">
+          <RefreshCw className="w-8 h-8 text-[#00F0FF] animate-spin" />
+        </div>
+      )}
+
       {/* Dropdown filters aligned top right */}
-      <div className="flex justify-end gap-3 -mt-4 mb-2">
+      <div className="flex justify-end gap-3 -mt-4 mb-2 relative z-10">
         <div className="relative">
           <select 
             value={timeRange} 
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="appearance-none bg-[#00F0FF]/10 border border-[#00F0FF]/30 text-[#00F0FF] text-xs font-bold py-2.5 pl-4 pr-9 rounded-full focus:outline-none cursor-pointer transition-all hover:bg-[#00F0FF]/15"
+            onChange={(e) => handleDropdownChange(setTimeRange, e.target.value)}
+            disabled={isRefreshing}
+            className="appearance-none bg-[#00F0FF]/10 border border-[#00F0FF]/30 text-[#00F0FF] text-xs font-bold py-2.5 pl-4 pr-9 rounded-full focus:outline-none cursor-pointer transition-all hover:bg-[#00F0FF]/15 disabled:opacity-50"
           >
             <option value="Last 30 Days">Last 30 Days</option>
             <option value="Last 7 Days">Last 7 Days</option>
@@ -36,8 +70,9 @@ export default function ProjectView() {
         <div className="relative">
           <select 
             value={comparison} 
-            onChange={(e) => setComparison(e.target.value)}
-            className="appearance-none bg-[#11192b] border border-[#1d2d4a] text-slate-300 text-xs font-bold py-2.5 pl-4 pr-9 rounded-full focus:outline-none cursor-pointer transition-all hover:bg-[#1a263f]"
+            onChange={(e) => handleDropdownChange(setComparison, e.target.value)}
+            disabled={isRefreshing}
+            className="appearance-none bg-[#11192b] border border-[#1d2d4a] text-slate-300 text-xs font-bold py-2.5 pl-4 pr-9 rounded-full focus:outline-none cursor-pointer transition-all hover:bg-[#1a263f] disabled:opacity-50"
           >
             <option value="Compare to Prev.">Compare to Prev.</option>
             <option value="Compare to Year">Compare to Year</option>
@@ -222,10 +257,16 @@ export default function ProjectView() {
             </div>
 
             <div className="flex gap-2">
-              <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all">
+              <button 
+                onClick={() => showToast('Search focused (Simulated)')}
+                className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all"
+              >
                 <Search className="w-4 h-4" />
               </button>
-              <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all">
+              <button 
+                onClick={() => showToast('Entered Fullscreen')}
+                className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2 rounded-lg transition-all"
+              >
                 <Maximize2 className="w-4 h-4" />
               </button>
             </div>
@@ -323,7 +364,10 @@ export default function ProjectView() {
             </h4>
             <p className="text-xs text-slate-500 mt-1">Success rate by common items</p>
           </div>
-          <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2.5 rounded-xl hover:bg-[#1a263f] transition-all">
+          <button 
+            onClick={() => showToast('Exporting CSV...')}
+            className="bg-[#11192b] border border-[#1d2d4a] text-slate-400 hover:text-white p-2.5 rounded-xl hover:bg-[#1a263f] transition-all"
+          >
             <Download className="w-4 h-4" />
           </button>
         </div>
@@ -331,19 +375,19 @@ export default function ProjectView() {
 
       {/* Floating Cyan Action Button */}
       <button 
-        onClick={() => alert('New deep analysis task created!')}
+        onClick={() => showToast('New deep analysis task created!')}
         className="fixed bottom-6 right-6 lg:bottom-10 lg:right-10 w-14 h-14 bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,240,255,0.35)] hover:shadow-[0_0_30px_rgba(0,240,255,0.65)] hover:scale-105 transition-all duration-300 z-50 group font-bold"
       >
         <Plus className="w-6 h-6 transition-transform duration-300 group-hover:rotate-90" />
       </button>
 
       {/* Footer */}
-      <footer className="pt-8 border-t border-[#1e2e4f]/30 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500">
-        <p>© 2023 ScanVista Inc.</p>
+      <footer className="pt-8 border-t border-[#1e2e4f]/30 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-500 relative z-10">
+        <p>© 2026 ScanVista Inc.</p>
         <div className="flex gap-6">
-          <a href="#" className="hover:text-slate-400 transition-colors">Help Center</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Feedback</a>
-          <a href="#" className="hover:text-slate-400 transition-colors">Terms of Service</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Help Center</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Feedback</a>
+          <a href="#" onClick={e => e.preventDefault()} className="hover:text-slate-400 transition-colors">Terms of Service</a>
         </div>
       </footer>
     </div>
