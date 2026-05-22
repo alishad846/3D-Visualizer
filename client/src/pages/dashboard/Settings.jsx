@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Shield, 
@@ -31,6 +32,7 @@ const Toggle = ({ enabled, onChange }) => (
 );
 
 export default function Settings() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('Profile');
   const [toastMessage, setToastMessage] = useState('');
 
@@ -458,7 +460,10 @@ export default function Settings() {
         </nav>
         
         <div className="border-t border-white/5 pt-6">
-          <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all">
+          <button 
+            onClick={() => navigate('/login')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+          >
             <LogOut className="w-4 h-4" /> Log Out
           </button>
         </div>

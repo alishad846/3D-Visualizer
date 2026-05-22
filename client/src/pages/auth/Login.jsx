@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { View } from 'lucide-react';
+import { View, ArrowLeft } from 'lucide-react';
 
 import SphereLogo from '../../components/SphereLogo';
 
@@ -58,6 +58,14 @@ export default function Login() {
       {/* Right Side - Form */}
       <div className="w-full lg:w-1/2 bg-[#1C1D21] flex flex-col items-center justify-center p-8 sm:p-12 lg:p-24 relative">
         
+        {/* Back to Home Button */}
+        <button 
+          onClick={() => navigate('/')}
+          className="absolute top-8 left-8 sm:top-12 sm:left-12 flex items-center gap-2 text-sm font-medium text-[#888] hover:text-white transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" /> Home
+        </button>
+
         {/* Toggle Switch */}
         <div className="absolute top-8 right-8 sm:top-12 sm:right-12 flex items-center gap-3 text-sm font-medium">
           <span className="text-[#00F0FF]">Login</span>

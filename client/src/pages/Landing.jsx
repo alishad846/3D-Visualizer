@@ -37,6 +37,17 @@ import {
 // 1. PLATFORM VIEW (Matches Screenshot 1)
 // ==============================================================
 const PlatformView = ({ navigate }) => {
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
+
+  const handleScanClick = () => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      navigate('/scan');
+    } else {
+      setShowMobileWarning(true);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -78,7 +89,7 @@ const PlatformView = ({ navigate }) => {
             Start Creating <ArrowRight className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => navigate('/scan')}
+            onClick={handleScanClick}
             className="w-20 h-20 bg-white/5 border border-white/10 text-white rounded-full hover:bg-white/10 transition-all flex items-center justify-center shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.05)] hover:shadow-[0_0_25px_rgba(255,255,255,0.1)]"
             title="Scan QR Code"
           >
@@ -254,6 +265,46 @@ const PlatformView = ({ navigate }) => {
           </div>
         </div>
       </section>
+
+      {/* Mobile Only Warning Modal */}
+      <AnimatePresence>
+        {showMobileWarning && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#0c1324] border border-[#1e2e4f]/50 p-8 rounded-3xl max-w-sm w-full text-center relative shadow-2xl"
+            >
+              <button 
+                onClick={() => setShowMobileWarning(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+              <div className="w-16 h-16 bg-[#00F0FF]/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Smartphone className="w-8 h-8 text-[#00F0FF]" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">Mobile Only</h3>
+              <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                The scanner requires a mobile device camera to function. Please open this page on your smartphone to scan QR codes!
+              </p>
+              <button 
+                onClick={() => setShowMobileWarning(false)}
+                className="w-full py-3 bg-[#1e2e4f] text-white font-bold rounded-xl hover:bg-[#2a3f6c] transition-colors"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </motion.div>
   );
 };

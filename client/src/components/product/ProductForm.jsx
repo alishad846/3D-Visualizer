@@ -6,6 +6,7 @@ import ThumbnailUploader from "../../components/product/editor/ThumbnailUploader
 import HighlightsEditor from "../../components/product/editor/HighlightsEditor";
 import SpecificationsEditor from "../../components/product/editor/SpecificationsEditor";
 import StickyActionBar from "../../components/product/editor/StickyActionBar";
+import MobileHandoffModal from "../../components/product/editor/MobileHandoffModal";
 
 // ---------------------------------------------------------------
 // Default blank product state
@@ -57,6 +58,27 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // ---------------------------------------------------------------
+  // MOBILE HANDOFF POLLING
+  // ---------------------------------------------------------------
+  const [handoffSessionId, setHandoffSessionId] = useState(null);
+
+  useEffect(() => {
+    if (!handoffSessionId) return;
+
+    const interval = setInterval(() => {
+      const dataUrl = localStorage.getItem(`handoff_${handoffSessionId}`);
+      if (dataUrl) {
+        // We got the file!
+        setModelUrl(dataUrl);
+        localStorage.removeItem(`handoff_${handoffSessionId}`); // Clean up
+        setHandoffSessionId(null); // Close modal
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [handoffSessionId]);
 
   // ---------------------------------------------------------------
   // SUB-FIELD UPDATERS
@@ -214,7 +236,7 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
                       <label
                         className="
                            px-7 py-3 rounded-2xl bg-cyan-400 text-black font-bold
-                           cursor-pointer hover:scale-105 transition
+                           cursor-pointer hover:scale-105 transition flex items-center gap-2
                          "
                       >
                         Upload Model
@@ -228,6 +250,19 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
                           }}
                         />
                       </label>
+                      
+                      <button
+                        onClick={() => {
+                          const newSession = Math.random().toString(36).substring(2, 10);
+                          setHandoffSessionId(newSession);
+                        }}
+                        className="
+                          px-7 py-3 rounded-2xl border-2 border-cyan-400/30 text-cyan-400 font-bold
+                          cursor-pointer hover:bg-cyan-400/10 transition flex items-center gap-2
+                        "
+                      >
+                        📱 Upload from Mobile
+                      </button>
                     </div>
                     {errors.modelUrl && <p className="text-red-400 font-bold mt-4 text-sm">A 3D GLB model is required</p>}
                   </>
@@ -266,6 +301,13 @@ export default function ProductForm({ initialProduct: propInitial, isEditMode = 
       <StickyActionBar
         onSave={handleSave}
         onCancel={isEditMode ? handleCancel : undefined}
+      />
+
+      {/* MOBILE HANDOFF MODAL */}
+      <MobileHandoffModal 
+        isOpen={!!handoffSessionId}
+        sessionId={handoffSessionId}
+        onClose={() => setHandoffSessionId(null)}
       />
 
     </div>

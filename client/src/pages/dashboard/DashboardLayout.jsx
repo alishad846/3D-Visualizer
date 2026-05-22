@@ -6,7 +6,6 @@ import {
   Heart,
   Layers,
   BarChart3,
-  Star,
   Settings,
   Search,
   Bell,
@@ -27,7 +26,6 @@ export default function DashboardLayout() {
     { icon: Heart, label: 'Favorites', path: '/dashboard/favorites' },
     { icon: Layers, label: 'Contents', path: '/dashboard/products' }, // Maps to products
     { icon: BarChart3, label: 'Analysis', path: '/dashboard/project-view' }, // Maps to project-view / analytics
-    { icon: Star, label: 'Stars', path: '/dashboard/stars' },
     { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
   ];
 

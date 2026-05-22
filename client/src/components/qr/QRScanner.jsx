@@ -30,8 +30,8 @@ export default function QRScanner() {
         
         // Simulating analyzing effect before redirecting
         setTimeout(() => {
-          // Assuming the QR code contains a product ID or URL. We will just redirect to view/demo for now.
-          navigate('/view/demo');
+          // Assuming the QR code contains a product ID or URL. We will redirect to the viewer frontend without hitting the backend.
+          navigate('/scanned-result');
         }, 1500);
       },
       (error) => {

@@ -15,6 +15,8 @@ import Landing from "./pages/Landing";
 import Showcase from "./pages/Showcase";
 import Scan from "./pages/Scan";
 import ProductSuccess from "./pages/product/ProductSuccess";
+import ScannedProductUI from "./pages/product/ScannedProductUI";
+import MobileUpload from "./pages/product/MobileUpload";
 
 export default function App() {
   return (
@@ -31,6 +33,11 @@ export default function App() {
         />
 
         <Route
+          path="/scanned-result"
+          element={<ScannedProductUI />}
+        />
+
+        <Route
           path="/showcase"
           element={<Showcase />}
         />
@@ -38,6 +45,11 @@ export default function App() {
         <Route
           path="/scan"
           element={<Scan />}
+        />
+
+        <Route
+          path="/mobile-upload/:sessionId"
+          element={<MobileUpload />}
         />
 
         <Route
