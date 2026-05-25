@@ -5,11 +5,11 @@ import HighlightsEditor   from "./editor/HighlightsEditor";
 import SpecificationsEditor from "./editor/SpecificationsEditor";
 import StickyActionBar    from "./editor/StickyActionBar";
 import MobileHandoffModal from "./editor/MobileHandoffModal";
-import VerificationModal  from "../../pages/product/VerificationModal";
-import QRSuccessModal     from "../../pages/product/QRSuccessModal";
+import VerificationModal  from "./VerificationModal";
+import QRSuccessModal     from "./QRSuccessModal";
 
 import { useWorkspaceStore }                        from "../../store/workspaceStore";
-import { createProduct, publishProduct, uploadAsset } from "../../api/products";
+import { createProduct, updateProduct, publishProduct, uploadAsset } from "../../api/products";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ const toSlug = (str) =>
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/(^-|-$)/g, "");
 
 const BLANK = {
   name:           "",
@@ -45,6 +45,24 @@ const BLANK = {
   // qr
   qrLabel:        "",
 };
+
+function normalizeProductData(product) {
+  if (!product) return null;
+  return {
+    ...product,
+    thumbnailUrl: product.thumbnail_url ?? product.thumbnailUrl ?? "",
+    modelUrl: product.model_url ?? product.modelUrl ?? "",
+    galleryUrls: Array.isArray(product.gallery_urls)
+      ? product.gallery_urls
+      : Array.isArray(product.galleryUrls)
+        ? product.galleryUrls
+        : [],
+    buyUrl: product.buy_url ?? product.buyUrl ?? "",
+    qrLabel: product.qr_label ?? product.qrLabel ?? "",
+    features: Array.isArray(product.features) ? product.features : [],
+    specs: Array.isArray(product.specs) ? product.specs : [],
+  };
+}
 
 const CATEGORIES = [
   "Electronics / Audio",
@@ -110,7 +128,7 @@ function Label({ children, required }) {
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-export default function ProductForm({ onStepComplete }) {
+export default function ProductForm({ initialProduct = null, isEditMode = false, onStepComplete }) {
   const navigate = useNavigate();
   const { activeProject, projects, fetchProjects } = useWorkspaceStore();
 
@@ -132,6 +150,38 @@ export default function ProductForm({ onStepComplete }) {
   useEffect(() => {
     if (projects.length === 0) fetchProjects();
   }, [projects, fetchProjects]);
+
+  // initialize edit mode values
+  useEffect(() => {
+    if (!initialProduct) return;
+
+    setP({
+      ...BLANK,
+      name: initialProduct.name || "",
+      tagline: initialProduct.tagline || "",
+      description: initialProduct.description || "",
+      brand: initialProduct.brand || "",
+      sku: initialProduct.sku || "",
+      category: initialProduct.category || "",
+      slug: initialProduct.slug || "",
+      thumbnailUrl: initialProduct.thumbnail_url || initialProduct.thumbnailUrl || "",
+      modelUrl: initialProduct.model_url || initialProduct.modelUrl || "",
+      galleryUrls: Array.isArray(initialProduct.gallery_urls)
+        ? initialProduct.gallery_urls
+        : initialProduct.gallery_urls || [],
+      highlights: Array.isArray(initialProduct.features) ? initialProduct.features : [],
+      specifications: Array.isArray(initialProduct.specs) ? initialProduct.specs : [],
+      price: initialProduct.price != null ? String(initialProduct.price) : "",
+      currency: initialProduct.currency || "INR",
+      buyUrl: initialProduct.buy_url || initialProduct.buyUrl || "",
+      qrLabel: initialProduct.qr_label || initialProduct.qrLabel || "",
+    });
+
+    const generatedSlug = initialProduct.name ? toSlug(initialProduct.name) : "";
+    setSlugEdited(
+      Boolean(initialProduct.slug) && initialProduct.slug !== generatedSlug
+    );
+  }, [initialProduct]);
 
   // mobile handoff polling
   useEffect(() => {
@@ -235,7 +285,7 @@ export default function ProductForm({ onStepComplete }) {
       setUploadMsg("Saving product...");
 
       const payload = {
-        projectId:    activeProject?.id,
+        projectId:    activeProject?.id || initialProduct?.project_id,
         name:         p.name.trim(),
         tagline:      p.tagline.trim()     || null,
         description:  p.description.trim() || null,
@@ -254,8 +304,10 @@ export default function ProductForm({ onStepComplete }) {
         qrLabel:      p.qrLabel.trim()     || null,
       };
 
-      const newProduct = await createProduct(payload);
-      setSavedProduct(newProduct);
+      const newProduct = isEditMode
+        ? await updateProduct(initialProduct.id, payload)
+        : await createProduct(payload);
+      setSavedProduct(normalizeProductData(newProduct));
       setUploading(false);
       setUploadMsg("");
       setVerifyOpen(true);
@@ -274,7 +326,7 @@ export default function ProductForm({ onStepComplete }) {
     try {
       setIsPublishing(true);
       const { product: pub, qrCode } = await publishProduct(savedProduct.id);
-      setSavedProduct(pub);
+      setSavedProduct(normalizeProductData(pub));
       setSavedQr(qrCode);
       setIsPublishing(false);
       setVerifyOpen(false);
@@ -301,7 +353,7 @@ export default function ProductForm({ onStepComplete }) {
         </div>
       )}
 
-      <div className="max-w-[760px] px-8 pt-8">
+      <div className="max-w-[1100px] mx-auto px-8 pt-8">
 
         {/* ══════════════════════════════════════════
             1. IDENTITY
@@ -471,7 +523,7 @@ export default function ProductForm({ onStepComplete }) {
           </div>
 
           {/* GLB + Gallery two-column */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
 
             {/* LEFT — 3D Model */}
             <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
@@ -623,29 +675,29 @@ export default function ProductForm({ onStepComplete }) {
         </Section>
 
         {/* ══════════════════════════════════════════
-            3. HIGHLIGHTS
+            3. HIGHLIGHTS + SPECIFICATIONS
         ══════════════════════════════════════════ */}
-        <Section id="s-highlights" label="Highlights">
-          <HighlightsEditor
-            highlights={p.highlights}
-            onChange={(h) => set("highlights", h)}
-          />
-        </Section>
+        <div className="grid gap-8 xl:grid-cols-2">
+          <Section id="s-highlights" label="Highlights">
+            <HighlightsEditor
+              highlights={p.highlights}
+              onChange={(h) => set("highlights", h)}
+            />
+          </Section>
+
+          <Section id="s-specs" label="Specifications">
+            <SpecificationsEditor
+              specs={p.specifications}
+              onChange={(s) => set("specifications", s)}
+            />
+          </Section>
+        </div>
 
         {/* ══════════════════════════════════════════
-            4. SPECIFICATIONS
+            5. COMMERCE + QR
         ══════════════════════════════════════════ */}
-        <Section id="s-specs" label="Specifications">
-          <SpecificationsEditor
-            specs={p.specifications}
-            onChange={(s) => set("specifications", s)}
-          />
-        </Section>
-
-        {/* ══════════════════════════════════════════
-            5. COMMERCE
-        ══════════════════════════════════════════ */}
-        <Section id="s-commerce" label="Commerce" optional>
+        <div className="grid gap-8 xl:grid-cols-2">
+          <Section id="s-commerce" label="Commerce" optional>
           <div className="grid grid-cols-3 gap-3 mb-2">
             <div>
               <Label>Price</Label>
@@ -686,26 +738,24 @@ export default function ProductForm({ onStepComplete }) {
           </p>
         </Section>
 
-        {/* ══════════════════════════════════════════
-            6. QR SETTINGS
-        ══════════════════════════════════════════ */}
-        <Section id="s-qr" label="QR Settings" optional>
-          <div className="max-w-[400px]">
-            <Label>QR Label</Label>
-            <input
-              className={inputCls(false)}
-              value={p.qrLabel}
-              onChange={(e) => set("qrLabel", e.target.value)}
-              placeholder="e.g. Scan to explore in 3D"
-              maxLength={100}
-            />
-            <p className="text-[10px] text-slate-600 mt-1.5">
-              Short text printed below the QR code on packaging or displays. Leave blank for no label.
-            </p>
-          </div>
-          {/* bottom breathing room above sticky bar */}
-          <div className="h-8" />
-        </Section>
+          <Section id="s-qr" label="QR Settings" optional>
+            <div>
+              <Label>QR Label</Label>
+              <input
+                className={inputCls(false)}
+                value={p.qrLabel}
+                onChange={(e) => set("qrLabel", e.target.value)}
+                placeholder="e.g. Scan to explore in 3D"
+                maxLength={100}
+              />
+              <p className="text-[10px] text-slate-600 mt-1.5">
+                Short text printed below the QR code on packaging or displays. Leave blank for no label.
+              </p>
+            </div>
+            {/* bottom breathing room above sticky bar */}
+            <div className="h-8" />
+          </Section>
+        </div>
 
       </div>
 

@@ -2,36 +2,55 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import ProductForm from "../../components/product/ProductForm";
-
-// ── loaders ────────────────────────────────────────────────────────
-function loadSampleProduct() {
-  try {
-    const raw = localStorage.getItem("scanvista-product");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
+import { fetchProductById } from "../../api/products";
 
 export default function EditProduct() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // In a real app the id would look up a list of saved products;
-    // for now we just grab the single sample product so the editor has data.
-    const saved = loadSampleProduct();
-    if (saved) {
-      setProduct(saved);
-    } else {
-      // Nothing saved yet – send user to Add Product
-      navigate("/add-product", { replace: true });
-    }
-  }, [id, navigate]);
+    const loadProduct = async () => {
+      try {
+        const data = await fetchProductById(id);
+        setProduct(data);
+      } catch (err) {
+        console.error(err);
+        setError(err.message || "Failed to load product details.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Still loading
-  if (!product) return null;
+    loadProduct();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#071018] text-white flex items-center justify-center">
+        <p className="text-sm text-slate-400">Loading product data…</p>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-[#071018] text-white flex items-center justify-center px-6">
+        <div className="max-w-lg rounded-3xl border border-cyan-400/10 bg-[#071018]/90 p-10 text-center">
+          <p className="text-lg font-semibold text-white mb-4">Unable to load product</p>
+          <p className="text-sm text-slate-400 mb-6">{error || "This product cannot be edited at the moment."}</p>
+          <button
+            onClick={() => navigate("/dashboard/products")}
+            className="px-6 py-3 rounded-2xl bg-cyan-400 text-black font-bold hover:bg-cyan-300 transition"
+          >
+            Back to products
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#071018] text-white overflow-x-hidden">

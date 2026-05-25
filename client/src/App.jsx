@@ -100,7 +100,7 @@ export default function App() {
 
         <Route path="/viewer" element={<ProductViewer />} />
         <Route path="/viewer/:productId" element={<ProductViewer />} />
-        <Route path="/p/:productId" element={<ProductViewer />} />
+        <Route path="/p/:slug" element={<ProductViewer />} />
         <Route path="/s/:token" element={<QRRedirector />} />
       </Routes>
     </BrowserRouter>

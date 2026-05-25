@@ -18,21 +18,21 @@ const defaultProduct = {
 };
 
 export default function ProductViewer() {
-    const { productId } = useParams();
+    const { slug } = useParams();
 
     const [product, setProduct] = useState(defaultProduct);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Fetch product from API when a productId is present in the route
+    // Fetch product from API when a slug or productId is present in the route
     useEffect(() => {
-        if (!productId) return;
+        if (!slug) return;
 
         let cancelled = false;
         setLoading(true);
         setError(null);
 
-        fetchProductById(productId)
+        fetchProductById(slug)
             .then((data) => {
                 if (cancelled) return;
                 setProduct({
@@ -63,8 +63,8 @@ export default function ProductViewer() {
     // when the user successfully launches AR. This connects to the existing
     // qr_scans.ar_used column without adding any new infrastructure.
     const handleArLaunch = () => {
-        if (!productId) return;
-        logProductScan(productId, { ar_used: true }).catch((err) => {
+        if (!slug) return;
+        logProductScan(slug, { ar_used: true }).catch((err) => {
             console.warn('[ProductViewer] AR analytics log failed:', err);
         });
     };

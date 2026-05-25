@@ -189,6 +189,127 @@ exports.createProduct = async (req, res, next) => {
   }
 };
 
+// PUT /api/products/:id
+exports.updateProduct = async (req, res, next) => {
+  const { id } = req.params;
+  const { userId } = req.user;
+  const {
+    projectId,
+    name,
+    tagline = null,
+    description = null,
+    category,
+    brand = null,
+    sku = null,
+    thumbnailUrl = null,
+    modelUrl,
+    usdzUrl = null,
+    galleryUrls = [],
+    features = [],
+    specs = [],
+    price = null,
+    currency = 'INR',
+    buyUrl = null,
+    qrLabel = null,
+    slug,
+  } = req.body;
+
+  if (!name || typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Product name is required' });
+  }
+  if (!projectId) {
+    return res.status(400).json({ error: 'Project selection is required' });
+  }
+  if (!category) {
+    return res.status(400).json({ error: 'Category is required' });
+  }
+  if (!modelUrl) {
+    return res.status(400).json({ error: '3D GLB Model upload is required' });
+  }
+  if (!slug || typeof slug !== 'string' || slug.trim() === '') {
+    return res.status(400).json({ error: 'Product slug is required' });
+  }
+
+  try {
+    // Validate ownership
+    const productCheck = await db.query(
+      'SELECT id, project_id FROM products WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (productCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'Product not found or access denied' });
+    }
+
+    const projectCheck = await db.query(
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      [projectId, userId]
+    );
+    if (projectCheck.rowCount === 0) {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    const slugCheck = await db.query(
+      'SELECT id FROM products WHERE slug = $1 AND id <> $2',
+      [slug.trim(), id]
+    );
+    if (slugCheck.rowCount > 0) {
+      return res.status(400).json({ error: 'Slug is already in use' });
+    }
+
+    const result = await db.query(
+      `UPDATE products SET
+        project_id = $1,
+        name = $2,
+        tagline = $3,
+        description = $4,
+        category = $5,
+        brand = $6,
+        sku = $7,
+        thumbnail_url = $8,
+        model_url = $9,
+        usdz_url = $10,
+        gallery_urls = $11,
+        features = $12,
+        specs = $13,
+        price = $14,
+        currency = $15,
+        buy_url = $16,
+        qr_label = $17,
+        slug = $18,
+        updated_at = NOW()
+       WHERE id = $19 AND user_id = $20
+       RETURNING *`,
+      [
+        projectId,
+        name.trim(),
+        tagline ? tagline.trim() : null,
+        description ? description.trim() : null,
+        category,
+        brand ? brand.trim() : null,
+        sku ? sku.trim() : null,
+        thumbnailUrl,
+        modelUrl,
+        usdzUrl,
+        JSON.stringify(galleryUrls),
+        JSON.stringify(features),
+        JSON.stringify(specs),
+        price,
+        currency,
+        buyUrl,
+        qrLabel,
+        slug.trim(),
+        id,
+        userId,
+      ]
+    );
+
+    return res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating product:', error);
+    next(error);
+  }
+};
+
 // POST /api/products/:id/publish
 exports.publishProduct = async (req, res, next) => {
   const { id } = req.params;
@@ -213,8 +334,8 @@ exports.publishProduct = async (req, res, next) => {
     // Generate public URLs using env-based host OR fallback
     const frontendUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     
-    // Shortlink scan URL which logs scans
-    const destinationUrl = `${frontendUrl}/s/${qrToken}`;
+    // Public product landing URL uses the product slug
+    const destinationUrl = `${frontendUrl}/p/${product.slug}`;
 
     // Generate QR Image data url using 'qrcode' package
     const qr = require('qrcode');

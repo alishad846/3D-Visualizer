@@ -1,6 +1,6 @@
 export default function StickyActionBar({ onSave, onCancel }) {
   return (
-    <div className="fixed bottom-0 left-0 w-full bg-black/60 backdrop-blur-2xl border-t border-cyan-400/20 p-3 sm:p-4 flex justify-end items-center z-50">
+    <div className="fixed bottom-0 left-0 w-full bg-transparent backdrop-blur-2xl border-t border-white/10 p-3 sm:p-4 flex justify-end items-center z-50">
 
       <div className="flex gap-2 sm:gap-3">
 

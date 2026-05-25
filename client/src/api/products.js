@@ -32,6 +32,16 @@ export const createProduct = async (productData) => {
   return data;
 };
 
+export const updateProduct = async (id, productData) => {
+  const res = await authRequest(`/products/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(productData),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update product');
+  return data;
+};
+
 export const publishProduct = async (id) => {
   const res = await authRequest(`/products/${id}/publish`, {
     method: 'POST',

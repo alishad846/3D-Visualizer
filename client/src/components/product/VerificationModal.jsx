@@ -22,7 +22,7 @@ export default function VerificationModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 30 }}
           transition={{ type: "spring", duration: 0.5 }}
-          className="bg-[#0b121f] border border-[#1e2e4f] w-full max-w-2xl rounded-[32px] p-6 md:p-8 shadow-[0_0_80px_rgba(0,240,255,0.15)] relative overflow-hidden"
+          className="bg-[#0b121f]/70 border border-[#1e2e4f]/60 backdrop-blur-3xl w-full max-w-2xl rounded-[32px] p-6 md:p-8 shadow-[0_0_80px_rgba(0,240,255,0.15)] relative overflow-hidden"
         >
           {/* Ambient Glow */}
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-400/10 blur-[80px] rounded-full pointer-events-none" />
@@ -55,7 +55,9 @@ export default function VerificationModal({
                 <div className="text-center">
                   <div className="text-3xl mb-2">📦</div>
                   <p className="text-xs font-bold text-slate-300 truncate max-w-[200px]">
-                    {product.modelUrl ? product.modelUrl.split('/').pop() : 'model.glb'}
+                    {(product.modelUrl || product.model_url)
+                      ? (product.modelUrl || product.model_url).split('/').pop()
+                      : 'model.glb'}
                   </p>
                 </div>
               </div>
@@ -64,9 +66,9 @@ export default function VerificationModal({
                 <div className="absolute top-3 left-3 flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase">
                   <Tag className="w-3.5 h-3.5 text-[#a855f7]" /> Thumbnail
                 </div>
-                {product.thumbnailUrl ? (
+                {(product.thumbnailUrl || product.thumbnail_url) ? (
                   <img
-                    src={product.thumbnailUrl}
+                    src={product.thumbnailUrl || product.thumbnail_url}
                     alt="Preview"
                     className="max-h-[120px] object-contain rounded-xl mix-blend-lighten"
                   />

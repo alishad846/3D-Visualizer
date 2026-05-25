@@ -38,7 +38,7 @@ export default function QRSuccessModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.9, opacity: 0, y: 30 }}
           transition={{ type: "spring", duration: 0.5 }}
-          className="bg-[#0b121f] border border-[#1e2e4f] w-full max-w-md rounded-[32px] p-8 shadow-[0_0_80px_rgba(0,240,255,0.25)] relative overflow-hidden flex flex-col items-center text-center"
+          className="bg-[#0b121f]/70 border border-[#1e2e4f]/60 backdrop-blur-3xl w-full max-w-md rounded-[32px] p-8 shadow-[0_0_80px_rgba(0,240,255,0.25)] relative overflow-hidden flex flex-col items-center text-center"
         >
           {/* Ambient Glow */}
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-400/10 blur-[80px] rounded-full pointer-events-none" />
