@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function SurfaceDetector() {
   return (
     <div className="p-4 border border-white/10 bg-white/5 backdrop-blur-md rounded-xl">

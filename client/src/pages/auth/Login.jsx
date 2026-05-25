@@ -2,22 +2,33 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { View, ArrowLeft } from 'lucide-react';
-
 import SphereLogo from '../../components/SphereLogo';
+import { loginUser } from '../../api/auth';
+import { useAuthStore } from '../../store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [loading, setLoading] = useState(false);
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      const data = await loginUser({ email, password });
+      setAuth(data.accessToken, data.user);
       navigate('/dashboard');
-    }, 1500);
+    } catch (err) {
+      setError(err.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetPassword = (e) => {
@@ -142,6 +153,8 @@ export default function Login() {
                     <input 
                       type="email" 
                       required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email Address" 
                       className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                     />
@@ -151,6 +164,8 @@ export default function Login() {
                     <input 
                       type="password" 
                       required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="Password" 
                       className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                     />
@@ -160,6 +175,10 @@ export default function Login() {
                 <div className="flex justify-end text-xs">
                   <button type="button" onClick={() => setForgotPasswordMode(true)} className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer">Forgot password?</button>
                 </div>
+
+                {error && (
+                  <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
+                )}
 
                 <button 
                   type="submit" 

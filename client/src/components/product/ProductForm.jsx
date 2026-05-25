@@ -1,315 +1,751 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
-import ProductIdentity from "../../components/product/editor/ProductIdentity";
-import ThumbnailUploader from "../../components/product/editor/ThumbnailUploader";
-import HighlightsEditor from "../../components/product/editor/HighlightsEditor";
-import SpecificationsEditor from "../../components/product/editor/SpecificationsEditor";
-import StickyActionBar from "../../components/product/editor/StickyActionBar";
-import MobileHandoffModal from "../../components/product/editor/MobileHandoffModal";
+import HighlightsEditor   from "./editor/HighlightsEditor";
+import SpecificationsEditor from "./editor/SpecificationsEditor";
+import StickyActionBar    from "./editor/StickyActionBar";
+import MobileHandoffModal from "./editor/MobileHandoffModal";
+import VerificationModal  from "../../pages/product/VerificationModal";
+import QRSuccessModal     from "../../pages/product/QRSuccessModal";
 
-// ---------------------------------------------------------------
-// Default blank product state
-// ---------------------------------------------------------------
-const BLANK_PRODUCT = {
-  name: "",
-  brand: "",
-  model: "",
-  category: "Electronics / Audio",
-  description: "",
-  modelUrl: "",
-  thumbnails: [],
-  highlights: [],
+import { useWorkspaceStore }                        from "../../store/workspaceStore";
+import { createProduct, publishProduct, uploadAsset } from "../../api/products";
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+const toSlug = (str) =>
+  str
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const BLANK = {
+  name:           "",
+  tagline:        "",
+  description:    "",
+  brand:          "",
+  sku:            "",
+  category:       "",
+  slug:           "",
+  // assets
+  thumbnailFile:  null,
+  thumbnailUrl:   "",
+  rawModelFile:   null,
+  modelUrl:       "",
+  galleryFiles:   [],
+  galleryUrls:    [],
+  // structured
+  highlights:     [],
   specifications: [],
+  // commerce
+  price:          "",
+  currency:       "INR",
+  buyUrl:         "",
+  // qr
+  qrLabel:        "",
 };
 
-// ---------------------------------------------------------------
-// Sample product stored in localStorage
-// ---------------------------------------------------------------
-function loadSampleProduct() {
-  try {
-    const raw = localStorage.getItem("scanvista-product");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+const CATEGORIES = [
+  "Electronics / Audio",
+  "Electronics / Mobile",
+  "Electronics / Laptop",
+  "Electronics / Camera",
+  "Furniture",
+  "Fashion",
+  "Automobile",
+  "Gaming",
+  "Industrial",
+  "Medical",
+  "Sports",
+  "Consumer Goods",
+  "Other",
+];
+
+const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED", "SGD"];
+
+// ─── shared input class ─────────────────────────────────────────────────────
+
+const inputCls = (hasErr) =>
+  `w-full bg-[#0b1622] border rounded-lg px-4 py-[10px] text-sm text-white outline-none transition-colors
+  ${hasErr
+    ? "border-red-500/50 focus:border-red-500"
+    : "border-white/10 focus:border-cyan-400/60"}`;
+
+// ─── section wrapper ────────────────────────────────────────────────────────
+
+function Section({ id, label, optional = false, children }) {
+  return (
+    <section id={id} className="mb-10 scroll-mt-6">
+      <div className="flex items-center gap-3 mb-5">
+        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em] whitespace-nowrap">
+          {label}
+          {optional && (
+            <span className="ml-1.5 text-slate-600 normal-case tracking-normal font-normal">
+              — optional
+            </span>
+          )}
+        </span>
+        <div className="flex-1 h-px bg-white/[0.06]" />
+      </div>
+      {children}
+    </section>
+  );
 }
 
-export default function ProductForm({ initialProduct: propInitial, isEditMode = false }) {
+// ─── field label ────────────────────────────────────────────────────────────
 
-  const navigate = useNavigate();
-  const { id } = useParams();
-
-  // ---------------------------------------------------------------
-  // STATE
-  // ---------------------------------------------------------------
-  const [product, setProduct] = useState(
-    propInitial || BLANK_PRODUCT
+function Label({ children, required }) {
+  return (
+    <label className="flex items-center gap-1.5 text-[11px] text-slate-400 mb-[6px]">
+      {required && (
+        <span className="w-[5px] h-[5px] rounded-full bg-cyan-400 flex-shrink-0" />
+      )}
+      {children}
+    </label>
   );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ════════════════════════════════════════════════════════════════════════════
+
+export default function ProductForm({ onStepComplete }) {
+  const navigate = useNavigate();
+  const { activeProject, projects, fetchProjects } = useWorkspaceStore();
+
+  const [p, setP]           = useState(BLANK);
   const [errors, setErrors] = useState({});
+  const [slugEdited, setSlugEdited] = useState(false);
 
-  // When navigating from EditProduct with loading, sync state
+  // upload / modal states
+  const [uploading, setUploading]         = useState(false);
+  const [uploadMsg, setUploadMsg]         = useState("");
+  const [handoffSession, setHandoffSession] = useState(null);
+  const [verifyOpen, setVerifyOpen]       = useState(false);
+  const [successOpen, setSuccessOpen]     = useState(false);
+  const [savedProduct, setSavedProduct]   = useState(null);
+  const [savedQr, setSavedQr]             = useState(null);
+  const [isPublishing, setIsPublishing]   = useState(false);
+
+  // fetch projects if needed
   useEffect(() => {
-    if (propInitial) {
-      setProduct({ ...BLANK_PRODUCT, ...propInitial });
-    } else if (isEditMode) {
-      const saved = loadSampleProduct();
-      if (saved) setProduct({ ...BLANK_PRODUCT, ...saved });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    if (projects.length === 0) fetchProjects();
+  }, [projects, fetchProjects]);
 
-  // ---------------------------------------------------------------
-  // MOBILE HANDOFF POLLING
-  // ---------------------------------------------------------------
-  const [handoffSessionId, setHandoffSessionId] = useState(null);
-
+  // mobile handoff polling
   useEffect(() => {
-    if (!handoffSessionId) return;
-
-    const interval = setInterval(() => {
-      const dataUrl = localStorage.getItem(`handoff_${handoffSessionId}`);
-      if (dataUrl) {
-        // We got the file!
-        setModelUrl(dataUrl);
-        localStorage.removeItem(`handoff_${handoffSessionId}`); // Clean up
-        setHandoffSessionId(null); // Close modal
+    if (!handoffSession) return;
+    const iv = setInterval(() => {
+      const url = localStorage.getItem(`handoff_${handoffSession}`);
+      if (url) {
+        set("modelUrl", url);
+        localStorage.removeItem(`handoff_${handoffSession}`);
+        setHandoffSession(null);
       }
     }, 1000);
+    return () => clearInterval(iv);
+  }, [handoffSession]);
 
-    return () => clearInterval(interval);
-  }, [handoffSessionId]);
+  // ── field helpers ──────────────────────────────────────────────────────
 
-  // ---------------------------------------------------------------
-  // SUB-FIELD UPDATERS
-  // ---------------------------------------------------------------
-  const updateIdentity = useCallback((patch) => {
-    setProduct((prev) => ({ ...prev, ...patch }));
+  const set = useCallback((field, value) => {
+    setP((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => ({ ...prev, [field]: false }));
   }, []);
 
-  const updateThumbnails = useCallback((thumbnails) => {
-    setProduct((prev) => ({ ...prev, thumbnails }));
-  }, []);
+  // auto-generate slug from name unless user has manually edited it
+  const handleNameChange = (val) => {
+    set("name", val);
+    if (!slugEdited) set("slug", toSlug(val));
+  };
 
-  const updateHighlights = useCallback((highlights) => {
-    setProduct((prev) => ({ ...prev, highlights }));
-  }, []);
+  const handleSlugChange = (val) => {
+    // enforce slug charset: lowercase, digits, hyphens only
+    const clean = val.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    set("slug", clean);
+    setSlugEdited(clean.length > 0);
+  };
 
-  const updateSpecifications = useCallback((specifications) => {
-    setProduct((prev) => ({ ...prev, specifications }));
-  }, []);
+  // gallery helpers
+  const addGalleryFiles = (files) => {
+    const arr   = Array.from(files).slice(0, 5 - p.galleryFiles.length);
+    const newFiles   = [...p.galleryFiles, ...arr];
+    const newPreviews = newFiles.map((f) =>
+      typeof f === "string" ? f : URL.createObjectURL(f)
+    );
+    setP((prev) => ({ ...prev, galleryFiles: newFiles, galleryUrls: newPreviews }));
+  };
 
-  // Model URL handler (receives object URL from file upload)
-  const setModelUrl = useCallback((url) => {
-    setProduct((prev) => ({ ...prev, modelUrl: url }));
-  }, []);
+  const removeGallery = (index) => {
+    const files = p.galleryFiles.filter((_, i) => i !== index);
+    const urls  = p.galleryUrls.filter((_,  i) => i !== index);
+    setP((prev) => ({ ...prev, galleryFiles: files, galleryUrls: urls }));
+  };
 
-  // ---------------------------------------------------------------
-  // SAVE
-  // ---------------------------------------------------------------
-  const handleSave = useCallback(() => {
-    const newErrors = {
-      name: !product.name,
-      brand: !product.brand,
-      model: !product.model,
-      description: !product.description,
-      modelUrl: !product.modelUrl,
+  // ── validation ─────────────────────────────────────────────────────────
+
+  const validate = () => {
+    const e = {
+      name:     !p.name.trim(),
+      category: !p.category,
+      slug:     !p.slug.trim(),
+      modelUrl: !p.modelUrl,
     };
-    
-    setErrors(newErrors);
+    setErrors(e);
+    return !Object.values(e).some(Boolean);
+  };
 
-    if (Object.values(newErrors).some((err) => err)) {
-      return; // Stop if there are errors
+  // ── save flow ──────────────────────────────────────────────────────────
+
+  const handleSave = async () => {
+    if (!validate()) return;
+
+    try {
+      setUploading(true);
+
+      // upload GLB
+      setUploadMsg("Uploading 3D model...");
+      let finalModelUrl = p.modelUrl;
+      if (p.rawModelFile) {
+        const res = await uploadAsset(p.rawModelFile);
+        finalModelUrl = res.url;
+      }
+
+      // upload thumbnail
+      setUploadMsg("Uploading thumbnail...");
+      let finalThumbUrl = p.thumbnailUrl;
+      if (p.thumbnailFile) {
+        const res = await uploadAsset(p.thumbnailFile);
+        finalThumbUrl = res.url;
+      }
+
+      // upload gallery
+      setUploadMsg("Uploading gallery images...");
+      const finalGallery = [];
+      for (const file of p.galleryFiles) {
+        if (typeof file === "string") {
+          finalGallery.push(file);
+        } else {
+          const res = await uploadAsset(file);
+          finalGallery.push(res.url);
+        }
+      }
+
+      setUploadMsg("Saving product...");
+
+      const payload = {
+        projectId:    activeProject?.id,
+        name:         p.name.trim(),
+        tagline:      p.tagline.trim()     || null,
+        description:  p.description.trim() || null,
+        brand:        p.brand.trim()       || null,
+        sku:          p.sku.trim()         || null,
+        category:     p.category,
+        slug:         p.slug.trim(),
+        modelUrl:     finalModelUrl,
+        thumbnailUrl: finalThumbUrl        || null,
+        galleryUrls:  finalGallery,
+        features:     p.highlights,
+        specs:        p.specifications,
+        price:        p.price              ? parseFloat(p.price) : null,
+        currency:     p.currency,
+        buyUrl:       p.buyUrl.trim()      || null,
+        qrLabel:      p.qrLabel.trim()     || null,
+      };
+
+      const newProduct = await createProduct(payload);
+      setSavedProduct(newProduct);
+      setUploading(false);
+      setUploadMsg("");
+      setVerifyOpen(true);
+    } catch (err) {
+      console.error(err);
+      setUploading(false);
+      setUploadMsg("");
+      alert(err.message || "Failed to create product. Please try again.");
     }
+  };
 
-    localStorage.setItem("scanvista-product", JSON.stringify(product));
-    navigate("/product-success");
-  }, [product, navigate]);
+  // ── publish / QR ───────────────────────────────────────────────────────
 
-  const handleCancel = useCallback(() => {
-    navigate("/add-product");
-  }, [navigate]);
+  const handleGenerateQR = async () => {
+    if (!savedProduct) return;
+    try {
+      setIsPublishing(true);
+      const { product: pub, qrCode } = await publishProduct(savedProduct.id);
+      setSavedProduct(pub);
+      setSavedQr(qrCode);
+      setIsPublishing(false);
+      setVerifyOpen(false);
+      setSuccessOpen(true);
+    } catch (err) {
+      console.error(err);
+      setIsPublishing(false);
+      alert(err.message || "Failed to generate QR Code.");
+    }
+  };
 
-  // ---------------------------------------------------------------
+  // ════════════════════════════════════════════════════════════════════════
   // RENDER
-  // ---------------------------------------------------------------
+  // ════════════════════════════════════════════════════════════════════════
+
   return (
-    <div
-      className="
-        relative rounded-[36px] border border-cyan-400/10
-        bg-white/[0.03] backdrop-blur-2xl overflow-hidden
-        shadow-[0_0_100px_rgba(0,0,0,0.45)]
-      "
-    >
+    <div className="relative pb-24">
 
-      {/* AMBIENT GLOW */}
-      <div
-        className="
-          absolute top-0 right-0 w-[500px] h-[500px
-          bg-cyan-400/10 blur-[160px] rounded-full
-        "
-      />
-
-      <div className="relative z-10 p-8 lg:p-10 pb-32 lg:pb-32">
-
-        {/* PAGE TITLE */}
-        <div className="mb-10">
-          <h2 className="text-5xl font-black">
-            Add / Edit Product:
-            <span className="text-cyan-400">
-              {" "}
-              {product.brand
-                ? `${product.brand} ${product.name}`
-                : "New Product"}
-            </span>
-          </h2>
-          <p className="text-slate-400 mt-4 text-lg">
-            {isEditMode
-              ? "Update 3D assets, thumbnails, specifications and highlights."
-              : "Upload 3D assets, thumbnails, specifications and highlights."}
-          </p>
+      {/* ── UPLOAD OVERLAY ── */}
+      {uploading && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <div className="w-10 h-10 rounded-full border-[3px] border-slate-700 border-t-cyan-400 animate-spin" />
+          <p className="text-sm font-semibold text-white tracking-wide">{uploadMsg}</p>
         </div>
+      )}
 
-        {/* ═══════════════════════════════ */}
-        {/*  IDENTITY                     */}
-        {/* ═══════════════════════════════ */}
-        <div className="rounded-[30px] border border-cyan-400/10 bg-black/20 backdrop-blur-xl p-8 mb-8">
-          <ProductIdentity
-            name={product.name}
-            brand={product.brand}
-            model={product.model}
-            category={product.category}
-            description={product.description}
-            errors={errors}
-            onChange={updateIdentity}
-          />
-        </div>
+      <div className="max-w-[760px] px-8 pt-8">
 
-        {/* ═══════════════════════════════ */}
-        {/*  MODEL + THUMBNAILS           */}
-        {/* ═══════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* ══════════════════════════════════════════
+            1. IDENTITY
+        ══════════════════════════════════════════ */}
+        <Section id="s-identity" label="Identity">
 
-          {/* MODEL UPLOAD */}
-          <div className="rounded-[30px] border border-cyan-400/10 bg-black/20 p-8">
-            <h3 className="text-3xl font-bold mb-8">Visual Assets</h3>
+          {/* Product Name */}
+          <div className="mb-3">
+            <Label required>Product Name</Label>
+            <input
+              className={inputCls(errors.name)}
+              value={p.name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="e.g. Sony WH-1000XM5 Wireless Headphones"
+            />
+            {errors.name && (
+              <p className="text-red-400 text-[11px] mt-1">Product name is required</p>
+            )}
+          </div>
 
+          {/* Tagline */}
+          <div className="mb-3">
+            <Label>Tagline</Label>
+            <input
+              className={inputCls(false)}
+              value={p.tagline}
+              onChange={(e) => set("tagline", e.target.value)}
+              placeholder="One line that captures what this product does"
+              maxLength={300}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="mb-3">
+            <Label>Description</Label>
+            <textarea
+              className={`${inputCls(false)} resize-none`}
+              rows={3}
+              value={p.description}
+              onChange={(e) => set("description", e.target.value)}
+              placeholder="Describe the product — what it is, who it's for, what makes it special..."
+            />
+          </div>
+
+          {/* Brand / SKU / Category */}
+          <div className="grid grid-cols-3 gap-3 mb-3">
+            <div>
+              <Label>Brand</Label>
+              <input
+                className={inputCls(false)}
+                value={p.brand}
+                onChange={(e) => set("brand", e.target.value)}
+                placeholder="e.g. Sony"
+              />
+            </div>
+            <div>
+              <Label>SKU</Label>
+              <input
+                className={inputCls(false)}
+                value={p.sku}
+                onChange={(e) => set("sku", e.target.value)}
+                placeholder="e.g. WH-1000XM5"
+              />
+            </div>
+            <div>
+              <Label required>Category</Label>
+              <select
+                className={`${inputCls(errors.category)} appearance-none cursor-pointer`}
+                value={p.category}
+                onChange={(e) => set("category", e.target.value)}
+              >
+                <option value="" disabled>Select category</option>
+                {CATEGORIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+              {errors.category && (
+                <p className="text-red-400 text-[11px] mt-1">Category is required</p>
+              )}
+            </div>
+          </div>
+
+          {/* Slug — bottom of identity */}
+          <div>
+            <Label required>Public URL Slug</Label>
             <div
               className={`
-                 min-h-[320px] rounded-[28px] border border-dashed
-                 flex flex-col items-center justify-center p-6
-                 ${errors.modelUrl ? 'border-red-500 bg-red-500/10' : 'border-cyan-400/20 bg-gradient-to-b from-cyan-400/10 to-transparent'}
-               `}
+                flex items-center bg-[#0b1622] border rounded-lg overflow-hidden
+                transition-colors
+                ${errors.slug ? "border-red-500/50" : "border-white/10 focus-within:border-cyan-400/60"}
+              `}
             >
-              <div className="text-7xl mb-4">📦</div>
-              <h4 className="text-2xl font-bold">3D GLB Model</h4>
-              <div className="flex flex-col items-center mt-4">
-                {product.modelUrl ? (
+              <span className="pl-4 pr-1 text-sm text-slate-500 whitespace-nowrap select-none">
+                scanvista.com/p/
+              </span>
+              <input
+                className="flex-1 bg-transparent py-[10px] pr-4 text-sm text-white outline-none"
+                value={p.slug}
+                onChange={(e) => handleSlugChange(e.target.value)}
+                placeholder="your-product-slug"
+              />
+            </div>
+            <p className="text-[10px] text-slate-600 mt-1.5">
+              Lowercase letters, numbers, and hyphens only. Auto-filled from product name — edit if needed. Must be unique within your project.
+            </p>
+            {errors.slug && (
+              <p className="text-red-400 text-[11px] mt-1">Slug is required</p>
+            )}
+          </div>
+
+        </Section>
+
+        {/* ══════════════════════════════════════════
+            2. VISUAL ASSETS
+        ══════════════════════════════════════════ */}
+        <Section id="s-assets" label="Visual Assets">
+
+          {/* Thumbnail — full width row */}
+          <div className="mb-4">
+            <Label required>Product Thumbnail</Label>
+            <div
+              className={`
+                flex items-center gap-4 border rounded-xl p-4 cursor-pointer
+                transition-colors group
+                ${p.thumbnailUrl
+                  ? "border-white/10 bg-white/[0.02]"
+                  : "border-dashed border-cyan-400/20 bg-cyan-400/[0.02] hover:border-cyan-400/40 hover:bg-cyan-400/[0.04]"}
+              `}
+              onClick={() => document.getElementById("thumb-input").click()}
+            >
+              {p.thumbnailUrl ? (
+                <img
+                  src={p.thumbnailUrl}
+                  alt="thumbnail"
+                  className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center flex-shrink-0 text-xl">
+                  🖼
+                </div>
+              )}
+              <div className="flex-1">
+                <p className="text-[12px] font-semibold text-slate-300">
+                  {p.thumbnailUrl ? "Thumbnail uploaded" : "Product thumbnail"}
+                </p>
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  PNG or JPG · max 5MB · shown as placeholder before 3D model loads
+                </p>
+              </div>
+              <div className="px-4 py-2 border border-cyan-400/20 rounded-lg text-[11px] text-cyan-400 flex-shrink-0 group-hover:bg-cyan-400/10 transition-colors">
+                {p.thumbnailUrl ? "Replace" : "Browse"}
+              </div>
+              <input
+                id="thumb-input"
+                type="file"
+                hidden
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    set("thumbnailFile", file);
+                    set("thumbnailUrl", URL.createObjectURL(file));
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* GLB + Gallery two-column */}
+          <div className="grid grid-cols-2 gap-4">
+
+            {/* LEFT — 3D Model */}
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-4 pb-0">
+                <span className="text-[12px] font-semibold text-slate-300">3D GLB Model</span>
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-cyan-400/10 text-cyan-400 px-2 py-0.5 rounded">
+                  Required
+                </span>
+              </div>
+
+              <div
+                className={`
+                  m-3 rounded-xl border-[1.5px] border-dashed p-6 text-center
+                  cursor-pointer transition-all
+                  ${errors.modelUrl
+                    ? "border-red-500/40 bg-red-500/5"
+                    : p.modelUrl
+                      ? "border-emerald-500/40 bg-emerald-500/5"
+                      : "border-cyan-400/20 bg-cyan-400/[0.02] hover:border-cyan-400/40 hover:bg-cyan-400/[0.04]"}
+                `}
+                onClick={() =>
+                  !p.modelUrl && document.getElementById("glb-input").click()
+                }
+              >
+                {p.modelUrl ? (
                   <>
-                    <div className="flex items-center gap-2">
-                      <span className="text-green-400">✓</span>
-                      <span className="text-slate-400">
-                        {product.modelUrl.split("/").pop()}
-                      </span>
-                    </div>
+                    <div className="text-2xl mb-2">✅</div>
+                    <p className="text-[12px] font-semibold text-emerald-400 mb-1">
+                      Model uploaded
+                    </p>
+                    <p className="text-[10px] text-slate-500 mb-3 truncate px-2">
+                      {p.rawModelFile?.name || p.modelUrl.split("/").pop()}
+                    </p>
                     <button
-                      onClick={() => {
-                        // Reset model URL to allow re-upload
-                        setModelUrl("");
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        set("modelUrl", "");
+                        set("rawModelFile", null);
                       }}
-                      className="
-                         mt-3 px-4 py-2 rounded-lg
-                         border border-cyan-400/30 text-cyan-300
-                         hover:bg-cyan-400/10 transition
-                       "
+                      className="text-[11px] text-cyan-400 border border-cyan-400/30 px-3 py-1.5 rounded-lg hover:bg-cyan-400/10 transition-colors"
                     >
-                      Replace Model
+                      Replace
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-slate-400 mt-2">
-                      No model uploaded
+                    <div className="text-3xl mb-3 opacity-50">⬡</div>
+                    <p className="text-[12px] font-semibold text-slate-400 mb-1">
+                      Drop your .glb file here
                     </p>
-
-                    <div className="flex gap-4 mt-8">
-                      <label
-                        className="
-                           px-7 py-3 rounded-2xl bg-cyan-400 text-black font-bold
-                           cursor-pointer hover:scale-105 transition flex items-center gap-2
-                         "
-                      >
-                        Upload Model
-                        <input
-                          type="file"
-                          hidden
-                          accept=".glb,.gltf"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) setModelUrl(URL.createObjectURL(file));
-                          }}
-                        />
-                      </label>
-                      
-                      <button
-                        onClick={() => {
-                          const newSession = Math.random().toString(36).substring(2, 10);
-                          setHandoffSessionId(newSession);
-                        }}
-                        className="
-                          px-7 py-3 rounded-2xl border-2 border-cyan-400/30 text-cyan-400 font-bold
-                          cursor-pointer hover:bg-cyan-400/10 transition flex items-center gap-2
-                        "
-                      >
-                        📱 Upload from Mobile
-                      </button>
-                    </div>
-                    {errors.modelUrl && <p className="text-red-400 font-bold mt-4 text-sm">A 3D GLB model is required</p>}
+                    <p className="text-[10px] text-slate-600">
+                      or{" "}
+                      <span className="text-cyan-400 cursor-pointer">browse files</span>
+                    </p>
+                    <p className="text-[10px] text-slate-600 mt-2">GLB only · max 50MB</p>
                   </>
                 )}
+                <input
+                  id="glb-input"
+                  type="file"
+                  hidden
+                  accept=".glb"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      set("rawModelFile", file);
+                      set("modelUrl", URL.createObjectURL(file));
+                    }
+                  }}
+                />
+              </div>
+
+              {errors.modelUrl && (
+                <p className="text-red-400 text-[11px] px-4 pb-3">
+                  A 3D GLB model is required
+                </p>
+              )}
+
+              {/* Mobile upload option */}
+              <div className="px-3 pb-3">
+                <button
+                  onClick={() =>
+                    setHandoffSession(Math.random().toString(36).substring(2, 10))
+                  }
+                  className="w-full py-2 border border-white/[0.08] rounded-lg text-[11px] text-slate-500 hover:text-slate-300 hover:border-white/20 transition-colors"
+                >
+                  📱 Upload from mobile
+                </button>
               </div>
             </div>
+
+            {/* RIGHT — Gallery */}
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-4 pb-0">
+                <span className="text-[12px] font-semibold text-slate-300">Gallery Images</span>
+                <span className="text-[9px] font-bold uppercase tracking-wide bg-white/[0.06] text-slate-500 px-2 py-0.5 rounded">
+                  Optional · up to 5
+                </span>
+              </div>
+
+              <div className="p-3">
+                <div className="grid grid-cols-5 gap-2 mb-2">
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const url = p.galleryUrls[i];
+                    return url ? (
+                      <div
+                        key={i}
+                        className="aspect-square rounded-lg overflow-hidden relative group border border-white/10"
+                      >
+                        <img
+                          src={url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          onClick={() => removeGallery(i)}
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-sm"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        key={i}
+                        className="aspect-square rounded-lg border border-dashed border-white/[0.08] bg-white/[0.02] flex items-center justify-center text-slate-600 text-base cursor-pointer hover:border-cyan-400/30 hover:text-cyan-400/60 transition-colors"
+                        onClick={() =>
+                          p.galleryUrls.length < 5 &&
+                          document.getElementById("gallery-input").click()
+                        }
+                      >
+                        +
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-slate-600 text-center">PNG, JPG · max 5MB each</p>
+                <input
+                  id="gallery-input"
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/png,image/jpeg,image/jpg,image/webp"
+                  onChange={(e) => addGalleryFiles(e.target.files)}
+                />
+              </div>
+            </div>
+
           </div>
+        </Section>
 
-          {/* THUMBNAILS */}
-          <ThumbnailUploader
-            images={product.thumbnails}
-            onImagesChange={updateThumbnails}
-          />
-        </div>
-
-        {/* ═══════════════════════════════ */}
-        {/*  HIGHLIGHTS + SPECS           */}
-        {/* ═══════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
+        {/* ══════════════════════════════════════════
+            3. HIGHLIGHTS
+        ══════════════════════════════════════════ */}
+        <Section id="s-highlights" label="Highlights">
           <HighlightsEditor
-            highlights={product.highlights}
-            onChange={updateHighlights}
+            highlights={p.highlights}
+            onChange={(h) => set("highlights", h)}
           />
+        </Section>
 
+        {/* ══════════════════════════════════════════
+            4. SPECIFICATIONS
+        ══════════════════════════════════════════ */}
+        <Section id="s-specs" label="Specifications">
           <SpecificationsEditor
-            specs={product.specifications}
-            onChange={updateSpecifications}
+            specs={p.specifications}
+            onChange={(s) => set("specifications", s)}
           />
+        </Section>
 
-        </div>
+        {/* ══════════════════════════════════════════
+            5. COMMERCE
+        ══════════════════════════════════════════ */}
+        <Section id="s-commerce" label="Commerce" optional>
+          <div className="grid grid-cols-3 gap-3 mb-2">
+            <div>
+              <Label>Price</Label>
+              <input
+                className={inputCls(false)}
+                type="number"
+                min="0"
+                step="0.01"
+                value={p.price}
+                onChange={(e) => set("price", e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <Label>Currency</Label>
+              <select
+                className={`${inputCls(false)} appearance-none cursor-pointer`}
+                value={p.currency}
+                onChange={(e) => set("currency", e.target.value)}
+              >
+                {CURRENCIES.map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label>Buy URL</Label>
+              <input
+                className={inputCls(false)}
+                value={p.buyUrl}
+                onChange={(e) => set("buyUrl", e.target.value)}
+                placeholder="https://your-store.com/product"
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-600">
+            Leave price empty if this product is for display only — no Buy Now button will appear on the viewer page.
+          </p>
+        </Section>
+
+        {/* ══════════════════════════════════════════
+            6. QR SETTINGS
+        ══════════════════════════════════════════ */}
+        <Section id="s-qr" label="QR Settings" optional>
+          <div className="max-w-[400px]">
+            <Label>QR Label</Label>
+            <input
+              className={inputCls(false)}
+              value={p.qrLabel}
+              onChange={(e) => set("qrLabel", e.target.value)}
+              placeholder="e.g. Scan to explore in 3D"
+              maxLength={100}
+            />
+            <p className="text-[10px] text-slate-600 mt-1.5">
+              Short text printed below the QR code on packaging or displays. Leave blank for no label.
+            </p>
+          </div>
+          {/* bottom breathing room above sticky bar */}
+          <div className="h-8" />
+        </Section>
 
       </div>
 
-      {/* STICKY ACTION BAR */}
+      {/* ── STICKY ACTION BAR ── */}
       <StickyActionBar
         onSave={handleSave}
-        onCancel={isEditMode ? handleCancel : undefined}
+        onCancel={() => navigate(-1)}
       />
 
-      {/* MOBILE HANDOFF MODAL */}
-      <MobileHandoffModal 
-        isOpen={!!handoffSessionId}
-        sessionId={handoffSessionId}
-        onClose={() => setHandoffSessionId(null)}
+      {/* ── MODALS ── */}
+      <MobileHandoffModal
+        isOpen={!!handoffSession}
+        sessionId={handoffSession}
+        onClose={() => setHandoffSession(null)}
       />
 
+      <VerificationModal
+        isOpen={verifyOpen}
+        product={savedProduct}
+        onEdit={() => setVerifyOpen(false)}
+        onGenerateQR={handleGenerateQR}
+        isPublishing={isPublishing}
+      />
+
+      <QRSuccessModal
+        isOpen={successOpen}
+        product={savedProduct}
+        qrCode={savedQr}
+        onClose={() => setSuccessOpen(false)}
+        onCreateAnother={() => {
+          setSuccessOpen(false);
+          setP(BLANK);
+          setSavedProduct(null);
+          setSavedQr(null);
+        }}
+        onViewLibrary={() => {
+          setSuccessOpen(false);
+          navigate("/dashboard/products");
+        }}
+      />
     </div>
   );
 }

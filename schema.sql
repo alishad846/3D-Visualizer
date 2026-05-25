@@ -1,6 +1,6 @@
 -- USERS
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -9,9 +9,11 @@ CREATE TABLE users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+
+
 -- REFRESH TOKENS
 CREATE TABLE refresh_tokens (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
@@ -20,7 +22,7 @@ CREATE TABLE refresh_tokens (
 
 -- PROJECTS (workspace grouping)
 CREATE TABLE projects (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(150) NOT NULL,
     description TEXT,
@@ -30,7 +32,7 @@ CREATE TABLE projects (
 
 -- PRODUCTS
 CREATE TABLE products (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
 
@@ -45,6 +47,7 @@ CREATE TABLE products (
     -- Visual assets
     thumbnail_url TEXT,
     model_url TEXT,              -- GLB file on Supabase Storage
+    usdz_url TEXT DEFAULT NULL,
     model_generated BOOLEAN DEFAULT FALSE,  -- Phase 2: AI-generated flag
     gallery_urls JSONB DEFAULT '[]',        -- array of image URLs
 
@@ -54,7 +57,7 @@ CREATE TABLE products (
 
     -- Commerce
     price NUMERIC(12, 2),
-    currency VARCHAR(10) DEFAULT 'USD',
+    currency VARCHAR(10) DEFAULT 'INR',
     buy_url TEXT,
 
     -- QR
@@ -67,22 +70,41 @@ CREATE TABLE products (
 
     -- State
     is_published BOOLEAN DEFAULT TRUE,
+    slug VARCHAR(255) UNIQUE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- QR PERSISTENCE CODES
+CREATE TABLE qr_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    qr_token VARCHAR(255) UNIQUE NOT NULL,
+    destination_url TEXT NOT NULL,
+    qr_image_url TEXT,
+    scan_count INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_qr_codes_token ON qr_codes(qr_token);
+CREATE INDEX idx_qr_codes_product_id ON qr_codes(product_id);
+
 -- PRODUCT EMBEDDINGS (Phase 2 — recommendation engine)
 CREATE TABLE product_embeddings (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
-    embedding JSONB,     -- pgvector extension not guaranteed on local
+    embedding VECTOR(1536),  -- requires pgvector extension
     model_version VARCHAR(50),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- QR SCANS (analytics)
 CREATE TABLE qr_scans (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     scanned_at TIMESTAMPTZ DEFAULT NOW(),
     device_type VARCHAR(20),      -- mobile / tablet / desktop
@@ -97,7 +119,7 @@ CREATE TABLE qr_scans (
 
 -- USER INTERACTION HISTORY (Phase 3 — personalization)
 CREATE TABLE user_interactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     interaction_type VARCHAR(50),  -- 'viewed', 'ar_used', 'voice_query', 'compared'
@@ -107,7 +129,7 @@ CREATE TABLE user_interactions (
 
 -- VOICE QUERIES LOG (Phase 2 — for Q&A improvement)
 CREATE TABLE voice_queries (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
     session_id VARCHAR(100),
     query_text TEXT,
@@ -118,7 +140,7 @@ CREATE TABLE voice_queries (
 
 -- COMPARISON SESSIONS (Phase 2)
 CREATE TABLE comparison_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     product_ids JSONB NOT NULL,    -- array of product IDs being compared
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -131,3 +153,4 @@ CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);
 CREATE INDEX idx_qr_scans_scanned_at ON qr_scans(scanned_at);
 CREATE INDEX idx_user_interactions_user_id ON user_interactions(user_id);
 CREATE INDEX idx_user_interactions_product_id ON user_interactions(product_id);
+CREATE INDEX idx_products_usdz_url ON products(usdz_url) WHERE usdz_url IS NOT NULL;

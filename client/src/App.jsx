@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import AddProduct from "./pages/product/AddProduct";
 import EditProduct from "./pages/product/EditProduct";
@@ -17,6 +18,9 @@ import Scan from "./pages/Scan";
 import ProductSuccess from "./pages/product/ProductSuccess";
 import ScannedProductUI from "./pages/product/ScannedProductUI";
 import MobileUpload from "./pages/product/MobileUpload";
+import AddProject from "./pages/project/AddProject";
+import QRRedirector from "./pages/product/QRRedirector";
+
 
 export default function App() {
   return (
@@ -67,15 +71,21 @@ export default function App() {
           element={<Login />}
         />
 
-        <Route
-          path="/dashboard"
-          element={<DashboardLayout />}
-        >
-          <Route index element={<DashboardHome />} />
-          <Route path="products" element={<Products />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="project-view" element={<ProjectView />} />
-          <Route path="favorites" element={<Favorites />} />
+        <Route element={<ProtectedRoute />}>
+          <Route
+            path="/dashboard"
+            element={<DashboardLayout />}
+          >
+            <Route index element={<DashboardHome />} />
+            <Route path="products" element={<Products />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="project-view" element={<ProjectView />} />
+            <Route path="favorites" element={<Favorites />} />
+          </Route>
+          <Route
+            path="/add-project"
+            element={<AddProject />}
+          />
         </Route>
 
         <Route
@@ -88,10 +98,10 @@ export default function App() {
           element={<EditProduct />}
         />
 
-        <Route
-          path="/viewer"
-          element={<ProductViewer />}
-        />
+        <Route path="/viewer" element={<ProductViewer />} />
+        <Route path="/viewer/:productId" element={<ProductViewer />} />
+        <Route path="/p/:productId" element={<ProductViewer />} />
+        <Route path="/s/:token" element={<QRRedirector />} />
       </Routes>
     </BrowserRouter>
   );

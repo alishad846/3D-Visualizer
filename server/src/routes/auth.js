@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const authController = require('../controllers/authController');
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Welcome to ScanVista auth Router' });
-});
+router.post('/register', authController.register);
+router.post('/login', authController.login);
+router.post('/refresh', authController.refresh);
+router.post('/logout', authController.logout);
 
 module.exports = router;

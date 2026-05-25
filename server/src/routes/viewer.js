@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Welcome to ScanVista viewer Router' });
-});
+const viewerController = require('../controllers/viewerController');
+
+router.get('/qr/:token', viewerController.getQrCodeByToken);
+router.get('/:productId', viewerController.getProductById);
+router.post('/:productId/scan', viewerController.logScan);
 
 module.exports = router;

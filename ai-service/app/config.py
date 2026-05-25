@@ -1,10 +1,11 @@
+import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = "your-openai-api-key"
+    OPENAI_API_KEY: str = ""
     AI_SERVICE_PORT: int = 8000
+    DATABASE_URL: str = ""
 
-    class Config:
-        env_file = ".env"
-
+    model_config = {"env_file": ".env"}
+    
 settings = Settings()

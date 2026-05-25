@@ -2,5 +2,5 @@
 export { fetchProducts } from './products';
 export { fetchAnalytics } from './analytics';
 export { fetchAuth } from './auth';
-export { fetchProjects } from './projects';
+export { fetchMyProjects, createProject } from './projects';
 export { fetchViewer } from './viewer';

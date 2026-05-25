@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const projectController = require('../controllers/projectController');
+const auth = require('../middleware/auth');
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Welcome to ScanVista projects Router' });
-});
+// Protect all project routes
+router.use(auth);
 
-module.exports = router;
+router.post('/', projectController.createProject);
+router.get('/my', projectController.getMyProjects);
+
+module.exports = router;

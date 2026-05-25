@@ -1,10 +1,8 @@
 import React, { Suspense, useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment, ContactShadows } from '@react-three/drei';
 import { ArrowLeft, View, ShoppingCart, Info, Share2, CheckCircle2, Hexagon, Maximize2, Minimize2 } from 'lucide-react';
-import ProductModel from '../../components/product/viewer/model/ProductModel';
+import ProductCanvas from '../../components/product/viewer/canvas/ProductCanvas';
 
 export default function ScannedProductUI() {
   const navigate = useNavigate();
@@ -156,30 +154,7 @@ export default function ScannedProductUI() {
             className="absolute inset-4 lg:inset-12 border border-white/10 bg-white/[0.02] backdrop-blur-3xl rounded-[40px] overflow-hidden shadow-2xl"
           >
             
-            <Canvas camera={{ position: [0, 0, 15], fov: 45 }}>
-              <ambientLight intensity={1.5} />
-              <directionalLight position={[10, 10, 10]} intensity={2} color="#ffffff" />
-              <directionalLight position={[-10, 0, -10]} intensity={1} color="#00F0FF" />
-              <spotLight position={[0, 10, 0]} intensity={3} angle={0.5} penumbra={1} color="#b366ff" />
-              
-              <Suspense fallback={null}>
-                {/* Reusing the ProductModel with the downloaded Boombox GLB */}
-                <ProductModel modelUrl="/models/headphone.glb" />
-                <Environment preset="city" />
-                <ContactShadows position={[0, -2, 0]} opacity={0.6} scale={15} blur={2.5} far={4} color="#000000" />
-              </Suspense>
-
-              <OrbitControls 
-                enablePan={false} 
-                enableZoom={true} 
-                minDistance={5}
-                maxDistance={25}
-                autoRotate 
-                autoRotateSpeed={0.5}
-                enableDamping
-                dampingFactor={0.05}
-              />
-            </Canvas>
+            <ProductCanvas modelUrl="/models/headphone.glb" autoRotate={true} />
 
             {/* Floating UI on top of 3D Canvas */}
             <div className="absolute bottom-8 right-8 flex flex-col gap-3">

@@ -1,4 +1,3 @@
-import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -11,7 +10,7 @@ import {
 export default function Scan() {
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const searchParams = new URLSearchParams(location.search);
   const matchedId = searchParams.get("matched") || "demo-product";
 
@@ -37,23 +36,23 @@ export default function Scan() {
 
       {/* ================= HUD CORNERS (Cyberpunk Style) ================= */}
       <div className="absolute inset-4 border border-cyan-400/20 pointer-events-none z-10" />
-      
+
       {/* Top Left Corner */}
       <svg className="absolute top-4 left-4 w-16 h-16 pointer-events-none z-10 opacity-60" viewBox="0 0 64 64" fill="none" stroke="#22d3ee">
         <polyline points="0,64 0,0 64,0" strokeWidth="2" />
         <polyline points="5,5 25,5" strokeWidth="4" />
       </svg>
-      
+
       {/* Top Right Corner */}
       <svg className="absolute top-4 right-4 w-16 h-16 pointer-events-none z-10 opacity-60" viewBox="0 0 64 64" fill="none" stroke="#22d3ee">
         <polyline points="64,64 64,0 0,0" strokeWidth="2" />
       </svg>
-      
+
       {/* Bottom Left Corner */}
       <svg className="absolute bottom-4 left-4 w-16 h-16 pointer-events-none z-10 opacity-60" viewBox="0 0 64 64" fill="none" stroke="#22d3ee">
         <polyline points="0,0 0,64 64,64" strokeWidth="2" />
       </svg>
-      
+
       {/* Bottom Right Corner */}
       <svg className="absolute bottom-4 right-4 w-16 h-16 pointer-events-none z-10 opacity-60" viewBox="0 0 64 64" fill="none" stroke="#22d3ee">
         <polyline points="64,0 64,64 0,64" strokeWidth="2" />
@@ -65,14 +64,14 @@ export default function Scan() {
 
       {/* ================= TOP UI ================= */}
       <div className="absolute top-10 left-10 z-50 flex flex-col items-start">
-        <div 
+        <div
           className="flex items-center gap-2 mb-2 cursor-pointer group"
           onClick={() => navigate("/")}
         >
           <Box className="w-5 h-5 text-cyan-400 group-hover:rotate-12 transition-transform" />
           <span className="text-cyan-400 text-lg font-bold tracking-widest">ScanVista</span>
         </div>
-        
+
         <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight mb-4 drop-shadow-lg">
           Object Recognition Scanner
         </h1>
@@ -91,16 +90,16 @@ export default function Scan() {
 
       {/* ================= CENTER RETICLE ================= */}
       <div className="relative z-20 w-full h-full flex flex-col items-center justify-center pointer-events-none mt-[-5vh]">
-        
+
         <div className="relative w-[380px] h-[380px] flex items-center justify-center">
-          
+
           {/* Main Brackets */}
           <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M 80 40 L 40 40 L 40 120" stroke="#22d3ee" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
             <path d="M 320 40 L 360 40 L 360 120" stroke="#22d3ee" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
             <path d="M 80 360 L 40 360 L 40 280" stroke="#22d3ee" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
             <path d="M 320 360 L 360 360 L 360 280" stroke="#22d3ee" strokeWidth="4" strokeLinecap="square" strokeLinejoin="miter" />
-            
+
             {/* Inner Details */}
             <path d="M 50 150 L 50 250" stroke="#22d3ee" strokeWidth="2" opacity="0.5" strokeDasharray="2 6" />
             <path d="M 350 150 L 350 250" stroke="#22d3ee" strokeWidth="2" opacity="0.5" strokeDasharray="2 6" />
@@ -117,15 +116,15 @@ export default function Scan() {
 
           {/* Glowing Center Hexagons */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <motion.div 
-              animate={{ rotate: 360, scale: [1, 1.1, 1] }} 
+            <motion.div
+              animate={{ rotate: 360, scale: [1, 1.1, 1] }}
               transition={{ rotate: { repeat: Infinity, duration: 20, ease: "linear" }, scale: { repeat: Infinity, duration: 4 } }}
               className="absolute flex items-center justify-center"
             >
               <Hexagon className="w-48 h-48 text-cyan-400/30" strokeWidth={1} />
             </motion.div>
-            <motion.div 
-              animate={{ rotate: -360 }} 
+            <motion.div
+              animate={{ rotate: -360 }}
               transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
               className="absolute flex items-center justify-center"
             >
@@ -138,7 +137,7 @@ export default function Scan() {
         </div>
 
         {/* Status Text */}
-        <motion.p 
+        <motion.p
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ repeat: Infinity, duration: 2 }}
           className="mt-6 text-white text-lg font-medium tracking-wide drop-shadow-md"
@@ -167,7 +166,7 @@ export default function Scan() {
             <Headphones className="w-5 h-5 text-white/80" />
           </div>
           <p className="text-xs md:text-sm font-semibold text-white/90 leading-tight">
-            <span className="text-cyan-400 font-bold mr-1">Detected:</span> 
+            <span className="text-cyan-400 font-bold mr-1">Detected:</span>
             Sony WH-1000XM5<br />
             <span className="text-[10px] text-white/50 font-normal block mt-0.5">(98% confidence)</span>
           </p>

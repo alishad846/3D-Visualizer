@@ -2,24 +2,31 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { View } from 'lucide-react';
-
 import SphereLogo from '../../components/SphereLogo';
+import { registerUser } from '../../api/auth';
 
 export default function Register() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await registerUser({ name, email, password });
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
-    }, 1500);
+      setTimeout(() => navigate('/login'), 2000);
+    } catch (err) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,11 +92,13 @@ export default function Register() {
             </motion.div>
           ) : (
             <form onSubmit={handleRegister} className="space-y-6">
-              <div className="space-y-5">
+                <div className="space-y-5">
                 <div>
                   <input 
                     type="text" 
                     required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     placeholder="Full Name" 
                     className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                   />
@@ -99,6 +108,8 @@ export default function Register() {
                   <input 
                     type="email" 
                     required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email Address" 
                     className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                   />
@@ -108,11 +119,17 @@ export default function Register() {
                   <input 
                     type="password" 
                     required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password" 
                     className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                   />
                 </div>
               </div>
+
+              {error && (
+                <p className="text-red-400 text-xs text-center">{error}</p>
+              )}
 
               <button 
                 type="submit" 

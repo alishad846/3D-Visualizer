@@ -1,5 +1,3 @@
-import React from 'react';
-
 const SphereLogo = ({ className = "" }) => {
   const R = 180; // Radius slightly smaller than 200 to give room for glow
   const longitudes = [];
