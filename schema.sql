@@ -102,20 +102,29 @@ CREATE TABLE product_embeddings (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- QR SCANS (analytics)
+-- QR SCANS
 CREATE TABLE qr_scans (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+    qr_code_id UUID REFERENCES qr_codes(id) ON DELETE SET NULL,
     scanned_at TIMESTAMPTZ DEFAULT NOW(),
-    device_type VARCHAR(20),      -- mobile / tablet / desktop
+    device_type VARCHAR(20),
     device_os VARCHAR(50),
     browser VARCHAR(50),
     country_code VARCHAR(5),
-    ip_hash VARCHAR(64),          -- hashed, not raw IP
-    session_duration_seconds INTEGER,  -- updated on session end
+    ip_hash VARCHAR(64),
+    session_duration_seconds INTEGER,
     ar_used BOOLEAN DEFAULT FALSE,
-    voice_used BOOLEAN DEFAULT FALSE
+    voice_used BOOLEAN DEFAULT FALSE,
+    referrer_type VARCHAR(20) DEFAULT 'qr_scan'
 );
+
+CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);
+CREATE INDEX idx_qr_scans_scanned_at ON qr_scans(scanned_at);
+CREATE INDEX idx_qr_scans_qr_code_id ON qr_scans(qr_code_id);
+CREATE INDEX idx_qr_scans_country_code ON qr_scans(country_code);
+CREATE INDEX idx_qr_scans_device_type ON qr_scans(device_type);
+CREATE INDEX idx_qr_scans_referrer_type ON qr_scans(referrer_type);
 
 -- USER INTERACTION HISTORY (Phase 3 — personalization)
 CREATE TABLE user_interactions (
@@ -151,6 +160,10 @@ CREATE INDEX idx_products_user_id ON products(user_id);
 CREATE INDEX idx_products_category ON products(category);
 CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);
 CREATE INDEX idx_qr_scans_scanned_at ON qr_scans(scanned_at);
+CREATE INDEX idx_qr_scans_qr_code_id ON qr_scans(qr_code_id);
+CREATE INDEX idx_qr_scans_country_code ON qr_scans(country_code);
+CREATE INDEX idx_qr_scans_device_type ON qr_scans(device_type);
+CREATE INDEX idx_qr_scans_referrer_type ON qr_scans(referrer_type);
 CREATE INDEX idx_user_interactions_user_id ON user_interactions(user_id);
 CREATE INDEX idx_user_interactions_product_id ON user_interactions(product_id);
 CREATE INDEX idx_products_usdz_url ON products(usdz_url) WHERE usdz_url IS NOT NULL;

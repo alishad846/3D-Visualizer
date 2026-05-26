@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 import { 
   User, 
   Shield, 
@@ -9,8 +10,6 @@ import {
   Monitor,
   Smartphone,
   Laptop,
-  Mail,
-  Star,
   Check,
   Edit2
 } from 'lucide-react';
@@ -36,25 +35,62 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState('Profile');
   const [toastMessage, setToastMessage] = useState('');
 
+  const user = useAuthStore((s) => s.user);
+  const accessToken = useAuthStore((s) => s.accessToken);
+  const setAuth = useAuthStore((s) => s.setAuth);
+
   const showToast = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(''), 3000);
   };
 
+  const profileAvatar = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Creator')}&background=0b101e&color=00F0FF&bold=true&size=200`;
+
   // --- Profile State ---
   const [profileData, setProfileData] = useState(() => {
     const saved = localStorage.getItem('scanvista-settings-profile');
     return saved ? JSON.parse(saved) : {
-      fullName: 'Alex Chen',
-      email: 'alex.chen@scanvista.tech',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=400&h=400&q=80'
+      fullName: user?.name || 'Creator',
+      email: user?.email || 'you@domain.com',
+      avatar: profileAvatar
     };
   });
   
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('scanvista-settings-profile');
+    if (saved) {
+      setProfileData(JSON.parse(saved));
+      return;
+    }
+
+    if (user) {
+      setProfileData({
+        fullName: user.name || 'Creator',
+        email: user.email || 'you@domain.com',
+        avatar: user.avatar || profileAvatar
+      });
+    }
+  }, [user]);
+
   const handleProfileSave = () => {
     localStorage.setItem('scanvista-settings-profile', JSON.stringify(profileData));
+    if (accessToken && typeof setAuth === 'function') {
+      const updatedUser = user
+        ? {
+            ...user,
+            name: profileData.fullName,
+            email: profileData.email,
+            avatar: profileData.avatar,
+          }
+        : {
+            name: profileData.fullName,
+            email: profileData.email,
+            avatar: profileData.avatar,
+          };
+      setAuth(accessToken, updatedUser);
+    }
     showToast('Profile updated successfully');
   };
 
@@ -328,24 +364,6 @@ export default function Settings() {
       </div>
 
       {/* Bottom Cards */}
-      <div className="grid md:grid-cols-3 gap-6 pt-4">
-        <div className="bg-[#121622] border border-white/5 rounded-3xl p-8 text-center flex flex-col items-center">
-          <Shield className="w-8 h-8 text-[#00F0FF] mb-4" />
-          <h4 className="text-sm font-bold text-white mb-2">Audit Logs</h4>
-          <p className="text-xs text-slate-400">Review all account activity logs from the last 90 days.</p>
-        </div>
-        <div className="bg-[#121622] border border-white/5 rounded-3xl p-8 text-center flex flex-col items-center">
-          <Mail className="w-8 h-8 text-[#EAB308] mb-4" />
-          <h4 className="text-sm font-bold text-white mb-2">Email Alerts</h4>
-          <p className="text-xs text-slate-400">Get notified of any unusual login attempts immediately.</p>
-        </div>
-        <div className="bg-[#121622] border border-white/5 rounded-3xl p-8 text-center flex flex-col items-center">
-          <Star className="w-8 h-8 text-[#00F0FF] mb-4" />
-          <h4 className="text-sm font-bold text-white mb-2">Elite Shield</h4>
-          <p className="text-xs text-slate-400">Your account is protected by Enterprise-grade encryption.</p>
-        </div>
-      </div>
-
     </div>
   );
 
@@ -427,8 +445,8 @@ export default function Settings() {
 
       {/* Settings Left Sidebar */}
       <div className="w-full lg:w-64 shrink-0 border-r border-white/5 pr-6 h-auto min-h-[calc(100vh-140px)]">
-        <h1 className="text-xl font-bold text-white font-display mb-1">Creator Settings</h1>
-        <p className="text-xs text-slate-500 mb-8">Manage your vista account</p>
+        <h1 className="text-xl font-bold text-white font-display mb-1">Account Settings</h1>
+        <p className="text-xs text-slate-500 mb-8">Manage your account, security, and preferences.</p>
         
         <nav className="space-y-2 mb-10">
           <button 

@@ -39,9 +39,7 @@ export default function DashboardLayout() {
   } = useWorkspaceStore();
 
   const [projectSearch, setProjectSearch] = useState('');
-  const [productSearch, setProductSearch] = useState('');
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
-  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -332,83 +330,7 @@ export default function DashboardLayout() {
                 )}
               </div>
 
-              {/* Divider Slash */}
-              <span className="text-slate-600 font-display text-base font-bold">/</span>
-
-              {/* Product Select */}
-              <div className="relative">
-                <button
-                  type="button"
-                  disabled={!activeProject}
-                  onClick={() => {
-                    setProductDropdownOpen(!productDropdownOpen);
-                    setProjectDropdownOpen(false);
-                  }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#1d2d4a] hover:border-[#00F0FF]/40 bg-[#11192b]/80 hover:bg-[#1a263f]/60 transition-all text-xs font-bold text-slate-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span className="text-[#a855f7]"></span>
-                  <span className="truncate max-w-[90px] sm:max-w-[130px]">
-                    {activeProduct ? activeProduct.name : 'Select Product'}
-                  </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                </button>
-
-                {productDropdownOpen && activeProject && (
-                  <div className="absolute left-0 mt-2 w-64 bg-[#0c1324] border border-[#1d2d4a] rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
-                    <div className="p-3 border-b border-[#1a2c4d]/50">
-                      <div className="relative">
-                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                        <input
-                          type="text"
-                          placeholder="Search products..."
-                          value={productSearch}
-                          onChange={(e) => setProductSearch(e.target.value)}
-                          className="w-full bg-[#11192b] border border-[#1d2d4a] rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] transition-all"
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto p-1.5 space-y-0.5">
-                      {products
-                        .filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()))
-                        .map(p => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => {
-                              setActiveProduct(p);
-                              setProductDropdownOpen(false);
-                              setProductSearch('');
-                              // Navigate to public page, or just keep selected state? Setting is good
-                            }}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-colors ${
-                              activeProduct?.id === p.id 
-                                ? 'bg-[#1c2a44] text-[#00F0FF]' 
-                                : 'text-slate-300 hover:bg-white/5'
-                            }`}
-                          >
-                            <span className="truncate">{p.name}</span>
-                            {activeProduct?.id === p.id && <span className="text-[#00F0FF]">✓</span>}
-                          </button>
-                        ))}
-                      {products.length === 0 && (
-                        <p className="text-[11px] text-slate-500 text-center py-4">No products found</p>
-                      )}
-                    </div>
-                    <div className="p-2 border-t border-[#1d2d4a] bg-[#11192b]/50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProductDropdownOpen(false);
-                          navigate('/add-product');
-                        }}
-                        className="w-full py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-black font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Add Product
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Product selector removed — project dashboard should not switch products */}
             </div>
           </div>
 

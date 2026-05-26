@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import HighlightsEditor   from "./editor/HighlightsEditor";
@@ -128,10 +128,11 @@ function Label({ children, required }) {
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-export default function ProductForm({ initialProduct = null, isEditMode = false, onStepComplete }) {
+export default function ProductForm({ initialProduct = null, isEditMode = false, onStepComplete, rollbackSignal }) {
   const navigate = useNavigate();
   const { activeProject, projects, fetchProjects } = useWorkspaceStore();
 
+  const baselineRef = useRef(null);
   const [p, setP]           = useState(BLANK);
   const [errors, setErrors] = useState({});
   const [slugEdited, setSlugEdited] = useState(false);
@@ -151,36 +152,36 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
     if (projects.length === 0) fetchProjects();
   }, [projects, fetchProjects]);
 
-  // initialize edit mode values
+  const getBaseline = (product) => ({
+    ...BLANK,
+    name: product?.name || "",
+    tagline: product?.tagline || "",
+    description: product?.description || "",
+    brand: product?.brand || "",
+    sku: product?.sku || "",
+    category: product?.category || "",
+    slug: product?.slug || "",
+    thumbnailUrl: product?.thumbnail_url || product?.thumbnailUrl || "",
+    modelUrl: product?.model_url || product?.modelUrl || "",
+    galleryUrls: Array.isArray(product?.gallery_urls)
+      ? product.gallery_urls
+      : Array.isArray(product?.galleryUrls)
+        ? product.galleryUrls
+        : [],
+    highlights: Array.isArray(product?.features) ? product.features : [],
+    specifications: Array.isArray(product?.specs) ? product.specs : [],
+    price: product?.price != null ? String(product.price) : "",
+    currency: product?.currency || "INR",
+    buyUrl: product?.buy_url || product?.buyUrl || "",
+    qrLabel: product?.qr_label || product?.qrLabel || "",
+  });
+
+  // initialize edit mode values and baseline snapshot
   useEffect(() => {
-    if (!initialProduct) return;
-
-    setP({
-      ...BLANK,
-      name: initialProduct.name || "",
-      tagline: initialProduct.tagline || "",
-      description: initialProduct.description || "",
-      brand: initialProduct.brand || "",
-      sku: initialProduct.sku || "",
-      category: initialProduct.category || "",
-      slug: initialProduct.slug || "",
-      thumbnailUrl: initialProduct.thumbnail_url || initialProduct.thumbnailUrl || "",
-      modelUrl: initialProduct.model_url || initialProduct.modelUrl || "",
-      galleryUrls: Array.isArray(initialProduct.gallery_urls)
-        ? initialProduct.gallery_urls
-        : initialProduct.gallery_urls || [],
-      highlights: Array.isArray(initialProduct.features) ? initialProduct.features : [],
-      specifications: Array.isArray(initialProduct.specs) ? initialProduct.specs : [],
-      price: initialProduct.price != null ? String(initialProduct.price) : "",
-      currency: initialProduct.currency || "INR",
-      buyUrl: initialProduct.buy_url || initialProduct.buyUrl || "",
-      qrLabel: initialProduct.qr_label || initialProduct.qrLabel || "",
-    });
-
-    const generatedSlug = initialProduct.name ? toSlug(initialProduct.name) : "";
-    setSlugEdited(
-      Boolean(initialProduct.slug) && initialProduct.slug !== generatedSlug
-    );
+    const snapshot = initialProduct ? getBaseline(initialProduct) : BLANK;
+    baselineRef.current = snapshot;
+    setP(snapshot);
+    setSlugEdited(Boolean(initialProduct?.slug) && initialProduct.slug !== toSlug(initialProduct.name || ""));
   }, [initialProduct]);
 
   // mobile handoff polling
@@ -196,6 +197,13 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
     }, 1000);
     return () => clearInterval(iv);
   }, [handoffSession]);
+
+  useEffect(() => {
+    if (rollbackSignal == null) return;
+    setP(baselineRef.current || BLANK);
+    setErrors({});
+    setSlugEdited(false);
+  }, [rollbackSignal]);
 
   // ── field helpers ──────────────────────────────────────────────────────
 
@@ -762,7 +770,12 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
       {/* ── STICKY ACTION BAR ── */}
       <StickyActionBar
         onSave={handleSave}
-        onCancel={() => navigate(-1)}
+        onCancel={() => {
+          setP(baselineRef.current || BLANK);
+          setErrors({});
+          setSlugEdited(false);
+          navigate(-1);
+        }}
       />
 
       {/* ── MODALS ── */}

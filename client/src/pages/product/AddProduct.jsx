@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, HelpCircle, ChevronDown, ChevronLeft } from "lucide-react";
 import ProductForm from "../../components/product/ProductForm";
 import { useWorkspaceStore } from "../../store/workspaceStore";
 import { useAuthStore } from "../../store/authStore";
@@ -42,6 +43,8 @@ export default function AddProduct() {
   const [completedSteps, setCompletedSteps] = useState([]);
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [projectSearch, setProjectSearch] = useState("");
+  const [rollbackKey, setRollbackKey] = useState(0);
+  const navigate = useNavigate();
 
   const { activeProject, projects, fetchProjects, setActiveProject } = useWorkspaceStore();
   const user = useAuthStore((state) => state.user);
@@ -60,6 +63,15 @@ export default function AddProduct() {
       fetchProjects();
     }
   }, [projects.length, fetchProjects]);
+
+  const handleBack = () => {
+    setRollbackKey((current) => current + 1);
+    if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      navigate("/dashboard/products");
+    }
+  };
 
   const scrollToSection = (index) => {
     const element = document.getElementById(STEPS[index].id);
@@ -109,15 +121,23 @@ export default function AddProduct() {
       <header className="sticky top-0 z-50 border-b border-cyan-400/10 bg-[#071018]/75 backdrop-blur-2xl">
         <div className="mx-auto flex max-w-[1500px] flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-[#071018]/80 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:border-cyan-400/30 hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Back
+            </button>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-2xl font-black text-cyan-300 shadow-[0_0_25px_rgba(34,211,238,0.15)]">
               S
             </div>
             <div className="flex items-center gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
+                {/* <p className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-300">
                   ScanVista Creator Side
-                </p>
-                <h1 className="text-xl font-bold">Add Product</h1>
+                </p> */}
+                {/* <h1 className="text-xl font-bold">Add Product</h1> */}
               </div>
               <div className="relative">
                 <button
@@ -300,6 +320,7 @@ export default function AddProduct() {
             {/* Form Card */}
             <div className="rounded-3xl border border-white/10 bg-[#07121f] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
               <ProductForm
+                rollbackSignal={rollbackKey}
                 onStepComplete={(stepIndex) => {
                   setCompletedSteps((prev) =>
                     prev.includes(stepIndex)
