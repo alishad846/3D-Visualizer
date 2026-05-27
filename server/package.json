@@ -3,9 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "main": "src/index.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "migrate": "node migrate.js",
+    "ensure-db": "node scripts/ensure-db.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

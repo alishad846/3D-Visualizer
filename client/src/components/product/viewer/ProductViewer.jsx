@@ -28,10 +28,17 @@ export default function ProductViewer() {
     const [zoomPercent, setZoomPercent] = useState(100);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const canvasPanelRef = useRef(null);
-    const [isMobileLayout, setIsMobileLayout] = useState(false);
+    const [layoutMode, setLayoutMode] = useState("ADAPTIVE"); // 'COMPACT' | 'ADAPTIVE' | 'EXPANDED'
     const [mode, setMode] = useState("viewer"); // 'viewer' | 'detail_sheet' | 'ar'
     const [sheetState, setSheetState] = useState("peek"); // 'peek' | 'half' | 'full'
     const touchStartYRef = useRef(null);
+    const sheetContentRef = useRef(null);
+    const sheetBodyInnerRef = useRef(null);
+    const [sheetSnapHeights, setSheetSnapHeights] = useState({
+        peekPx: 140,
+        halfPx: 360,
+        fullPx: 520,
+    });
 
     useEffect(() => {
         if (!productId) return;
@@ -78,11 +85,31 @@ export default function ProductViewer() {
         return () => { cancelled = true; };
     }, [productId]);
 
-    // Layout breakpoint — mobile / tablet vs desktop
+    // Responsive layout mode based on size + pointer coarse detection
     useEffect(() => {
         const compute = () => {
             if (typeof window === "undefined") return;
-            setIsMobileLayout(window.innerWidth <= 900);
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            const isCoarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches ?? false;
+            const shortEdge = Math.min(width, height);
+            const longEdge = Math.max(width, height);
+
+            let nextMode;
+            if (shortEdge < 600) {
+                nextMode = "COMPACT";
+            } else if (longEdge <= 1024) {
+                nextMode = "ADAPTIVE";
+            } else {
+                nextMode = "EXPANDED";
+            }
+
+            // Keep large touch devices in adaptive layout to preserve overlay UX.
+            if (isCoarsePointer && nextMode === "EXPANDED" && shortEdge < 900) {
+                nextMode = "ADAPTIVE";
+            }
+
+            setLayoutMode(nextMode);
         };
         compute();
         window.addEventListener("resize", compute);
@@ -128,7 +155,11 @@ export default function ProductViewer() {
     const sectionLabel = "text-[10px] font-semibold uppercase tracking-[0.1em] text-[#A0A0A0] mb-3";
 
     const cycleSheetStateUp = () => {
-        setSheetState((prev) => (prev === "peek" ? "half" : prev === "half" ? "full" : "full"));
+        setSheetState((prev) => {
+            if (prev === "peek") return "half";
+            if (prev === "half") return sheetSnapHeights.fullPx > sheetSnapHeights.halfPx + 8 ? "full" : "half";
+            return "full";
+        });
     };
 
     const cycleSheetStateDown = () => {
@@ -136,7 +167,12 @@ export default function ProductViewer() {
     };
 
     const handleSheetTapHandle = () => {
-        setSheetState((prev) => (prev === "peek" ? "half" : prev === "half" ? "full" : "peek"));
+        const canUseFull = sheetSnapHeights.fullPx > sheetSnapHeights.halfPx + 8;
+        setSheetState((prev) => {
+            if (prev === "peek") return "half";
+            if (prev === "half") return canUseFull ? "full" : "peek";
+            return "peek";
+        });
     };
 
     const handleSheetTouchStart = (e) => {
@@ -161,14 +197,61 @@ export default function ProductViewer() {
         touchStartYRef.current = null;
     };
 
-    // Mobile / tablet immersive layout: full-screen 3D canvas with bottom sheet overlays
-    if (isMobileLayout) {
-        const sheetHeightClass =
+    const isImmersiveLayout = layoutMode !== "EXPANDED";
+    const isCompact = layoutMode === "COMPACT";
+
+    const updateSheetHeights = () => {
+        if (!isImmersiveLayout) return;
+        const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
+        const basePeek = Math.round(viewportH * (isCompact ? 0.20 : 0.16));
+        const baseHalf = Math.round(viewportH * (isCompact ? 0.50 : 0.44));
+        const baseFull = Math.round(viewportH * (isCompact ? 0.88 : 0.82));
+        const contentEl = sheetBodyInnerRef.current;
+        const stickyBuyBarHeight = product.buyUrl ? 88 : 0;
+        const contentHeight = contentEl ? contentEl.scrollHeight + 48 + stickyBuyBarHeight : baseFull; // content + handle/top gap + sticky CTA bar
+
+        const cappedFull = Math.min(baseFull, Math.max(basePeek, contentHeight));
+        const cappedHalf = Math.min(baseHalf, cappedFull);
+
+        setSheetSnapHeights({
+            peekPx: basePeek,
+            halfPx: cappedHalf,
+            fullPx: cappedFull,
+        });
+    };
+
+    // Keep snap heights aligned to viewport/content so sheet won't open into empty space.
+    useEffect(() => {
+        updateSheetHeights();
+        if (!isImmersiveLayout || typeof window === "undefined") return undefined;
+        const onResize = () => updateSheetHeights();
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+    }, [isImmersiveLayout, isCompact, product, loading, error]);
+
+    useEffect(() => {
+        if (!isImmersiveLayout) return undefined;
+        const el = sheetBodyInnerRef.current;
+        if (!el || typeof ResizeObserver === "undefined") return undefined;
+        const ro = new ResizeObserver(() => updateSheetHeights());
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, [isImmersiveLayout, isCompact, product.buyUrl]);
+
+    useEffect(() => {
+        if (sheetState === "full" && sheetSnapHeights.fullPx <= sheetSnapHeights.halfPx + 8) {
+            setSheetState("half");
+        }
+    }, [sheetSnapHeights, sheetState]);
+
+    // COMPACT + ADAPTIVE immersive layout: full-screen 3D canvas with bottom sheet overlays
+    if (isImmersiveLayout) {
+        const sheetHeightPx =
             sheetState === "peek"
-                ? "h-[20vh]"
+                ? sheetSnapHeights.peekPx
                 : sheetState === "half"
-                ? "h-[50vh]"
-                : "h-[88vh]";
+                ? sheetSnapHeights.halfPx
+                : sheetSnapHeights.fullPx;
 
         return (
             <div className="relative min-h-screen bg-[#050816] text-white overflow-hidden">
@@ -185,7 +268,7 @@ export default function ProductViewer() {
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,transparent_45%,rgba(0,0,0,0.55)_100%)]" />
 
                 {/* Top overlay: brand + small title */}
-                <div className="absolute top-4 left-4 right-4 flex items-center justify-between gap-3 z-20">
+                <div className={`absolute ${isCompact ? "top-4 left-4 right-4" : "top-4 left-5 right-5"} flex items-center justify-between gap-3 z-20`}>
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-cyan-400/20 border border-cyan-400/30 flex items-center justify-center text-cyan-300 text-sm font-bold">
                             S
@@ -195,7 +278,7 @@ export default function ProductViewer() {
                                 ScanVista Viewer
                             </div>
                             {product.name ? (
-                                <div className="text-sm font-semibold text-white">
+                                <div className={`${isCompact ? "text-sm" : "text-base"} font-semibold text-white`}>
                                     {product.name}
                                 </div>
                             ) : null}
@@ -208,7 +291,7 @@ export default function ProductViewer() {
                 </div>
 
                 {/* AR button — floats above canvas, bottom-right */}
-                <div className="absolute bottom-28 right-4 z-30">
+                <div className={`absolute ${isCompact ? "bottom-28 right-4" : "bottom-24 right-5"} z-30`}>
                     <ARLauncher
                         modelUrl={product.modelUrl}
                         usdzUrl={product.usdzUrl}
@@ -217,13 +300,14 @@ export default function ProductViewer() {
                 </div>
 
                 {/* Drag hint for 3D */}
-                <div className="absolute bottom-20 left-1/2 -translate-x-1/2 text-slate-400 text-[10px] tracking-[0.25em] uppercase select-none pointer-events-none">
+                <div className={`absolute ${isCompact ? "bottom-20" : "bottom-[72px]"} left-1/2 -translate-x-1/2 text-slate-400 text-[10px] tracking-[0.25em] uppercase select-none pointer-events-none`}>
                     Drag to Rotate
                 </div>
 
                 {/* Bottom sheet — overlays canvas without moving it */}
                 <div
-                    className={`absolute left-0 right-0 bottom-0 z-40 ${sheetHeightClass} transition-[height] duration-250`}
+                    className="absolute left-0 right-0 bottom-0 z-40 transition-[height] duration-250"
+                    style={{ height: `${sheetHeightPx}px` }}
                     onTouchStart={handleSheetTouchStart}
                     onTouchEnd={handleSheetTouchEnd}
                 >
@@ -239,16 +323,21 @@ export default function ProductViewer() {
                         </button>
 
                         {/* Content */}
-                        <div className="pt-7 pb-4 px-4 h-full overflow-y-auto">
-                            {/* Title + tagline (repeated here so sheet can stand alone when expanded) */}
-                            <div className="mb-3">
+                        <div
+                            ref={sheetContentRef}
+                            className="pt-7 h-full flex flex-col"
+                        >
+                            <div className={`${isCompact ? "px-4" : "px-5"} flex-1 overflow-y-auto`}>
+                                <div ref={sheetBodyInnerRef} className="pb-4">
+                                    {/* Title + tagline (repeated here so sheet can stand alone when expanded) */}
+                                    <div className="mb-3">
                                 {product.category ? (
                                     <div className="inline-block px-3 py-1 rounded-full border border-cyan-400/25 text-cyan-300 text-[10px] font-semibold tracking-[0.16em] uppercase mb-2">
                                         {product.category}
                                     </div>
                                 ) : null}
                                 {product.name ? (
-                                    <div className="text-lg font-semibold leading-tight">
+                                    <div className={`${isCompact ? "text-lg" : "text-xl"} font-semibold leading-tight`}>
                                         {product.name}
                                     </div>
                                 ) : null}
@@ -257,65 +346,69 @@ export default function ProductViewer() {
                                         {product.tagline}
                                     </p>
                                 ) : null}
+                                    </div>
+
+                                    {/* Description */}
+                                    {product.description ? (
+                                        <p className={`${isCompact ? "text-[13px]" : "text-sm"} text-slate-300 leading-relaxed mb-4`}>
+                                            {product.description}
+                                        </p>
+                                    ) : null}
+
+                                    {/* Highlights */}
+                                    {Array.isArray(product.features) && product.features.length > 0 ? (
+                                        <div className="mb-4">
+                                            <h3 className={sectionLabel}>Highlights</h3>
+                                            <ul className="space-y-1.5">
+                                                {product.features.map((feature, index) => (
+                                                    <li
+                                                        key={`${feature}-${index}`}
+                                                        className={`flex items-start gap-2 ${isCompact ? "text-[13px]" : "text-sm"} text-slate-200`}
+                                                    >
+                                                        <span className="text-[#00F0FF] mt-0.5 text-xs">●</span>
+                                                        <span>{feature}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Specifications */}
+                                    {Array.isArray(product.specifications) && product.specifications.length > 0 ? (
+                                        <div className="mb-4">
+                                            <h3 className={sectionLabel}>Specifications</h3>
+                                            <div className="space-y-1">
+                                                {product.specifications.map((spec, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="flex justify-between gap-4 border-b border-white/[0.05] py-2"
+                                                    >
+                                                        <span className={`${isCompact ? "text-[12px]" : "text-sm"} text-[#94a3b8]`}>
+                                                            {spec.key}
+                                                        </span>
+                                                        <span className={`${isCompact ? "text-[13px]" : "text-sm"} text-white font-medium text-right`}>
+                                                            {spec.value}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
 
-                            {/* Description */}
-                            {product.description ? (
-                                <p className="text-[13px] text-slate-300 leading-relaxed mb-4">
-                                    {product.description}
-                                </p>
-                            ) : null}
-
-                            {/* Highlights */}
-                            {Array.isArray(product.features) && product.features.length > 0 ? (
-                                <div className="mb-4">
-                                    <h3 className={sectionLabel}>Highlights</h3>
-                                    <ul className="space-y-1.5">
-                                        {product.features.map((feature, index) => (
-                                            <li
-                                                key={`${feature}-${index}`}
-                                                className="flex items-start gap-2 text-[13px] text-slate-200"
-                                            >
-                                                <span className="text-[#00F0FF] mt-0.5 text-xs">●</span>
-                                                <span>{feature}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            ) : null}
-
-                            {/* Specifications */}
-                            {Array.isArray(product.specifications) && product.specifications.length > 0 ? (
-                                <div className="mb-4">
-                                    <h3 className={sectionLabel}>Specifications</h3>
-                                    <div className="space-y-1">
-                                        {product.specifications.map((spec, index) => (
-                                            <div
-                                                key={index}
-                                                className="flex justify-between gap-4 border-b border-white/[0.05] py-2"
-                                            >
-                                                <span className="text-[12px] text-[#94a3b8]">
-                                                    {spec.key}
-                                                </span>
-                                                <span className="text-[13px] text-white font-medium text-right">
-                                                    {spec.value}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            {/* Buy CTA */}
+                            {/* Buy CTA — sticky at sheet bottom when available */}
                             {product.buyUrl ? (
-                                <a
-                                    href={product.buyUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="mt-4 mb-2 block w-full py-3 rounded-2xl bg-[#00F0FF] text-black font-semibold text-sm text-center hover:bg-cyan-300 transition shadow-[0_0_24px_rgba(0,240,255,0.35)]"
-                                >
-                                    Buy Now
-                                </a>
+                                <div className={`border-t border-white/10 ${isCompact ? "p-3" : "p-4"} bg-[#020617]/95`}>
+                                    <a
+                                        href={product.buyUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className={`block w-full ${isCompact ? "py-3 text-sm" : "py-3.5 text-base"} rounded-2xl bg-[#00F0FF] text-black font-semibold text-center hover:bg-cyan-300 transition shadow-[0_0_24px_rgba(0,240,255,0.35)]`}
+                                    >
+                                        Buy Now
+                                    </a>
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -344,7 +437,7 @@ export default function ProductViewer() {
                 />
             </div>
 
-            {/* MAIN LAYOUT */}
+            {/* EXPANDED layout */}
             <div className="grid grid-cols-1 lg:grid-cols-[38%_62%] h-[calc(100vh-80px)]">
 
                 {/* LEFT PANEL — flat, no card border, no background card */}

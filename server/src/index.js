@@ -18,10 +18,13 @@ const { rateLimiter } = require('./middleware/rateLimiter');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render / reverse-proxy: needed for secure cookies and rate-limit IP
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true
+  credentials: true,
 }));
 app.use(cookieParser());
 app.use(express.json());

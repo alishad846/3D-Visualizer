@@ -96,6 +96,22 @@ npm run dev
 
 ---
 
+## 🚀 Production Deployment (Render)
+
+| Service | URL |
+|--------|-----|
+| Frontend | https://scanvista.onrender.com |
+| API | https://scanvista-api.onrender.com |
+
+1. Push this repo to GitHub.
+2. Render → **New Blueprint** → select repo (`render.yaml` provisions DB + API + static site).
+3. Set `SUPABASE_URL` and `SUPABASE_KEY` on the **scanvista-api** service.
+4. Full checklist: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+
+Optional frontend on Vercel: root [`vercel.json`](vercel.json) (API should stay on Render).
+
+---
+
 ## 🐳 Running with Docker Compose
 
 If you have Docker installed and want to run the full stack (including live PostgreSQL database and Redis caching engines), simply run:
@@ -121,3 +137,22 @@ This orchestrates the following networks:
 | `npm run dev:server` | Server | Runs only the Express API with `nodemon` dev watching. |
 | `npm run dev:ai` | AI Service | Runs only the FastAPI server in dev reload mode. |
 | `npm run start` | Monorepo | Launches production builds concurrently. |
+
+---
+
+## 🛡️ God Mode Admin System Design
+
+ScanVista now includes a detailed architecture and implementation blueprint for the Super Admin Intelligence System:
+
+- **Design document:** `docs/GOD_MODE_ADMIN_SYSTEM.md`
+- **Scope:** observability layer, safe control plane, immutable audit system
+- **Core rule:** this admin system is **not** a raw database editor
+
+The document defines:
+
+- Production-grade system architecture and data flow (`scan -> product -> AR -> analytics -> admin`)
+- Security model (RBAC, validation pipeline, approval controls, immutable logs)
+- Backend blueprint aligned to the current Express + PostgreSQL stack
+- Proposed DB additions for admin actions, permissions, and audit trails
+- API categories (read-only observability vs controlled mutation endpoints)
+- Event taxonomy and phased rollout strategy

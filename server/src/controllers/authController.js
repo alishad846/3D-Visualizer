@@ -2,6 +2,10 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { JWT_SECRET, JWT_REFRESH_SECRET, hashRefreshToken } = require('../utils/tokens');
+const {
+  refreshCookieOptions,
+  clearRefreshCookieOptions,
+} = require('../utils/cookies');
 
 // Helper to validate email format
 const isValidEmail = (email) => {
@@ -66,13 +70,15 @@ exports.register = async (req, res, next) => {
       [user.id, refreshTokenHash, expiresAt]
     );
 
-    // 7. Set Refresh Token HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // true in production
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    // // 7. Set Refresh Token HTTP-only cookie
+    // res.cookie('refreshToken', refreshToken, {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === 'production', // true in production
+    //   sameSite: 'strict',
+    //   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    // });
+
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
 
     // 8. Return Access Token & User info (never password_hash)
     return res.status(201).json({
@@ -141,13 +147,7 @@ exports.login = async (req, res, next) => {
       [user.id, refreshTokenHash, expiresAt]
     );
 
-    // 6. Set HTTP-only Cookie
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
 
     // 7. Return Access Token & User details (omitting password_hash)
     const userResponse = {
@@ -199,7 +199,7 @@ exports.refresh = async (req, res, next) => {
       console.warn(`SECURITY ALERT: Token reuse anomaly detected for user ${userId}. Revoking all sessions.`);
       // Wipe ALL refresh tokens for this user
       await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', clearRefreshCookieOptions());
       return res.status(401).json({ error: 'Session compromised. Please log in again.' });
     }
 
@@ -207,7 +207,7 @@ exports.refresh = async (req, res, next) => {
     if (new Date(matchedTokenRow.expires_at) < new Date()) {
       // Delete specific expired token row
       await db.query('DELETE FROM refresh_tokens WHERE id = $1', [matchedTokenRow.id]);
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', clearRefreshCookieOptions());
       return res.status(401).json({ error: 'Refresh token expired' });
     }
 
@@ -220,7 +220,7 @@ exports.refresh = async (req, res, next) => {
       [userId]
     );
     if (userResult.rowCount === 0) {
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', clearRefreshCookieOptions());
       return res.status(401).json({ error: 'User no longer exists' });
     }
     const user = userResult.rows[0];
@@ -247,12 +247,7 @@ exports.refresh = async (req, res, next) => {
       [user.id, newRefreshTokenHash, expiresAt]
     );
 
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    res.cookie('refreshToken', newRefreshToken, refreshCookieOptions());
 
     return res.json({
       accessToken: newAccessToken,
@@ -268,7 +263,7 @@ exports.logout = async (req, res, next) => {
   const { refreshToken } = req.cookies;
 
   if (!refreshToken) {
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', clearRefreshCookieOptions());
     return res.status(200).json({ success: true, message: 'Logged out successfully' });
   }
 
@@ -277,7 +272,7 @@ exports.logout = async (req, res, next) => {
     try {
       decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
     } catch (err) {
-      res.clearCookie('refreshToken');
+      res.clearCookie('refreshToken', clearRefreshCookieOptions());
       return res.status(200).json({ success: true, message: 'Logged out successfully' });
     }
 
@@ -295,7 +290,7 @@ exports.logout = async (req, res, next) => {
       await db.query('DELETE FROM refresh_tokens WHERE id = $1', [matched.id]);
     }
 
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', clearRefreshCookieOptions());
     return res.status(200).json({ success: true, message: 'Logged out successfully' });
   } catch (error) {
     next(error);

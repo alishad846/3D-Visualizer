@@ -1,0 +1,62 @@
+# ScanVista — Render Blueprint
+
+# Frontend:  https://scanvista.onrender.com
+# Backend:   https://scanvista-api.onrender.com
+#   (Future) Admin: https://scanvista-admin.onrender.com
+#   (Future) AI:    https://scanvista-ai.onrender.com
+
+services:
+  # ── Backend API (Node/Express) ───────────────────────────────
+  - type: web
+    name: scanvista-api
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    preDeployCommand: npm run ensure-db
+    startCommand: npm start
+    healthCheckPath: /health
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: CLIENT_URL
+        value: https://scanvista.onrender.com
+
+      # Neon DB connection (MANUAL - set in Render dashboard)
+      - key: DATABASE_URL
+        sync: false
+
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+      # Optional external services
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_KEY
+        sync: false
+
+  # ── Frontend (Vite static site) ───────────────────────────────
+  - type: web
+    name: scanvista
+    runtime: static
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+
+    pullRequestPreviewsEnabled: true
+
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      - key: VITE_API_URL
+        value: https://scanvista-api.onrender.com/api

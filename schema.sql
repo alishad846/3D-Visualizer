@@ -1,3 +1,6 @@
+-- Required for uuid_generate_v4() defaults (Render PostgreSQL, local, etc.)
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- USERS
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
