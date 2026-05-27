@@ -1,5 +1,5 @@
 // ScanVista Auth API — all calls routed through unified client
-import { publicRequest, authRequest } from './client';
+import { publicRequest } from './client';
 
 // ── Register ──────────────────────────────────────────────────
 export async function registerUser({ name, email, password }) {
@@ -33,9 +33,9 @@ export async function refreshSession() {
 
 // ── Logout ────────────────────────────────────────────────────
 export async function logoutUser() {
-  // Best-effort — ignore errors so local state always clears
+  // Cookie-only logout — works even when access token is expired
   try {
-    await authRequest('/auth/logout', { method: 'POST' });
+    await publicRequest('/auth/logout', { method: 'POST' });
   } catch {
     // no-op
   }

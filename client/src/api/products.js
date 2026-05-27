@@ -1,5 +1,4 @@
-import { authRequest } from './client';
-import { BASE_URL } from './config';
+import { authRequest, authUpload } from './client';
 
 export const fetchProducts = async () => {
   const res = await authRequest('/products');
@@ -52,21 +51,16 @@ export const publishProduct = async (id) => {
 };
 
 export const uploadAsset = async (file) => {
+  if (!(file instanceof File) && !(file instanceof Blob)) {
+    throw new Error('Invalid file for upload');
+  }
+
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append('file', file, file.name || 'asset');
 
-  const store = await import('../store/authStore').then((m) => m.useAuthStore);
-  const { accessToken } = store.getState();
-
-  const response = await fetch(`${BASE_URL}/products/upload-asset`, {
-    method: 'POST',
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: formData,
-  });
-
+  const response = await authUpload('/products/upload-asset', formData);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || 'Failed to upload asset');
+  if (!data.url) throw new Error('Upload did not return a storage URL');
   return data;
 };

@@ -8,10 +8,10 @@ const upload = require('../middleware/upload');
 router.use(auth);
 
 router.get('/', productController.getProducts);
+router.post('/upload-asset', upload.single('file'), productController.uploadAsset);
 router.get('/:id', productController.getProductById);
 router.post('/', productController.createProduct);
 router.put('/:id', productController.updateProduct);
 router.post('/:id/publish', productController.publishProduct);
-router.post('/upload-asset', upload.single('file'), productController.uploadAsset);
 
 module.exports = router;

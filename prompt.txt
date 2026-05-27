@@ -1,0 +1,120 @@
+🧩 ScanVista Mobile Viewer — Clean Implementation Prompt
+
+Design and implement a mobile-first ScanVista product viewer where a 3D model remains immersive and UI layers are managed using a strict state-based system. The goal is to avoid layout conflicts between the model, product details, and AR mode.
+
+🎯 Core Problem to Solve
+
+On mobile devices:
+
+The 3D model gets hidden when product details appear OR
+The model loses importance when UI is minimized incorrectly
+
+We need a system where:
+
+The 3D model is always full-screen and never resized
+UI overlays are layered on top without affecting model layout
+
+🧠 Required Architecture (MANDATORY)
+
+Implement a 3-layer state machine architecture:
+
+MODE = {
+  VIEWER,        // default 3D immersive mode
+  DETAIL_SHEET,  // bottom sheet overlay for product info
+  AR_MODE        // fullscreen AR experience
+}
+🧱 Layer 1: VIEWER (Default Immersive Mode)
+Purpose:
+
+Full focus on 3D product experience.
+
+UI Rules:
+3D model = 100% full screen (fixed)
+No resizing or layout shift ever
+Only minimal overlays allowed
+Allowed UI Elements:
+Product name (small, top-left or bottom-left)
+Floating AR button (bottom-right, subtle glow)
+Bottom sheet drag handle (center-bottom)
+Behavior:
+Model remains interactive (rotate/zoom)
+UI is secondary, non-intrusive
+📦 Layer 2: DETAIL_SHEET (Bottom Sheet System)
+Purpose:
+
+Show product information without breaking immersion.
+
+CRITICAL RULE:
+
+Bottom sheet overlays the model — the model NEVER moves or resizes
+
+Snap States (fixed, NOT continuous scaling):
+State 1 — Peek (15–20%)
+Product title
+Swipe hint
+Drag handle visible
+Model fully visible behind sheet
+State 2 — Half (50%)
+Product specs
+Highlights
+Scroll enabled inside sheet
+State 3 — Full (85–90%)
+Full product details page
+Buy/Add to cart actions
+Reviews, description, etc.
+Interaction Rules:
+Swipe up → expand sheet
+Swipe down → collapse sheet
+Tap handle → toggle states
+Model remains unaffected in all states
+🌐 Layer 3: AR_MODE (Independent Fullscreen State)
+Purpose:
+
+Switch from digital product view → real-world overlay.
+
+Entry:
+Floating AR button on VIEWER mode
+On click → request camera permission first
+Flow:
+User clicks AR button
+Show permission prompt (camera access)
+Loading state: “Preparing AR experience…”
+Enter AR_MODE fullscreen
+AR_MODE UI Rules:
+Camera feed = 100% fullscreen
+3D object placed in real world
+NO bottom sheet, NO product UI
+Only allowed UI:
+Exit AR button (top-right)
+Optional: scale/rotate controls (minimal)
+Exit Behavior:
+Exit AR → return to VIEWER mode
+Do NOT restore sheet state automatically
+🔁 State Transition Rules
+VIEWER → DETAIL_SHEET (drag or swipe up)
+DETAIL_SHEET → VIEWER (collapse or swipe down)
+
+VIEWER → AR_MODE (AR button click)
+AR_MODE → VIEWER (exit AR)
+
+DETAIL_SHEET → AR_MODE (AR button still allowed, but must close sheet first OR auto-collapse)
+🚫 Strict Anti-Patterns (DO NOT IMPLEMENT)
+❌ Do not resize or push 3D model when sheet opens
+❌ Do not make UI dependent on model space
+❌ Do not use free-form 20%–50% fluid resizing
+❌ Do not show product details in AR mode
+❌ Do not mix AR UI with product browsing UI
+🧠 Key Design Principle
+
+The 3D model is a permanent visual canvas
+Everything else is an overlay state machine
+
+🏗️ Expected Result
+
+This architecture produces:
+
+Immersive Apple-style 3D product experience
+Clean bottom-sheet UX like Google Maps / Amazon
+Fully isolated AR mode like IKEA Place
+No UI collision issues on mobile
+Predictable and scalable interaction system

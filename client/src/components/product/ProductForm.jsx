@@ -10,6 +10,7 @@ import QRSuccessModal     from "./QRSuccessModal";
 
 import { useWorkspaceStore }                        from "../../store/workspaceStore";
 import { createProduct, updateProduct, publishProduct, uploadAsset } from "../../api/products";
+import { isPersistentUrl, isTemporaryUrl, dataUrlToFile } from "../../utils/assets";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,8 @@ const BLANK = {
   thumbnailUrl:   "",
   rawModelFile:   null,
   modelUrl:       "",
+  rawUsdzFile:    null,
+  usdzUrl:        "",
   galleryFiles:   [],
   galleryUrls:    [],
   // structured
@@ -52,6 +55,7 @@ function normalizeProductData(product) {
     ...product,
     thumbnailUrl: product.thumbnail_url ?? product.thumbnailUrl ?? "",
     modelUrl: product.model_url ?? product.modelUrl ?? "",
+    usdzUrl: product.usdz_url ?? product.usdzUrl ?? "",
     galleryUrls: Array.isArray(product.gallery_urls)
       ? product.gallery_urls
       : Array.isArray(product.galleryUrls)
@@ -163,6 +167,7 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
     slug: product?.slug || "",
     thumbnailUrl: product?.thumbnail_url || product?.thumbnailUrl || "",
     modelUrl: product?.model_url || product?.modelUrl || "",
+    usdzUrl: product?.usdz_url || product?.usdzUrl || "",
     galleryUrls: Array.isArray(product?.gallery_urls)
       ? product.gallery_urls
       : Array.isArray(product?.galleryUrls)
@@ -256,39 +261,72 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
 
   // ── save flow ──────────────────────────────────────────────────────────
 
+  const resolveModelUrl = async () => {
+    if (p.rawModelFile) {
+      const res = await uploadAsset(p.rawModelFile);
+      return res.url;
+    }
+    if (isPersistentUrl(p.modelUrl)) return p.modelUrl;
+    if (isTemporaryUrl(p.modelUrl)) {
+      const file = await dataUrlToFile(p.modelUrl, p.rawModelFile?.name || "model.glb");
+      const res = await uploadAsset(file);
+      return res.url;
+    }
+    throw new Error("Please upload a 3D model (.glb) before saving.");
+  };
+
+  const resolveUsdzUrl = async () => {
+    if (p.rawUsdzFile) {
+      const res = await uploadAsset(p.rawUsdzFile);
+      return res.url;
+    }
+    if (!p.usdzUrl) return null;
+    if (isPersistentUrl(p.usdzUrl)) return p.usdzUrl;
+    throw new Error("USDZ preview is temporary. Please upload the .usdz file again.");
+  };
+
+  const resolveThumbnailUrl = async () => {
+    if (p.thumbnailFile) {
+      const res = await uploadAsset(p.thumbnailFile);
+      return res.url;
+    }
+    if (!p.thumbnailUrl) return null;
+    if (isPersistentUrl(p.thumbnailUrl)) return p.thumbnailUrl;
+    throw new Error("Thumbnail preview is temporary. Please upload the image again.");
+  };
+
+  const resolveGalleryUrls = async () => {
+    const finalGallery = [];
+    const persisted = (p.galleryUrls || []).filter(isPersistentUrl);
+    finalGallery.push(...persisted);
+
+    for (const file of p.galleryFiles) {
+      if (file instanceof File) {
+        const res = await uploadAsset(file);
+        finalGallery.push(res.url);
+      }
+    }
+
+    return [...new Set(finalGallery)];
+  };
+
   const handleSave = async () => {
     if (!validate()) return;
 
     try {
       setUploading(true);
 
-      // upload GLB
       setUploadMsg("Uploading 3D model...");
-      let finalModelUrl = p.modelUrl;
-      if (p.rawModelFile) {
-        const res = await uploadAsset(p.rawModelFile);
-        finalModelUrl = res.url;
-      }
+      const finalModelUrl = await resolveModelUrl();
 
-      // upload thumbnail
+      setUploadMsg("Uploading USDZ (iOS AR)...");
+      const finalUsdzUrl = await resolveUsdzUrl();
+
       setUploadMsg("Uploading thumbnail...");
-      let finalThumbUrl = p.thumbnailUrl;
-      if (p.thumbnailFile) {
-        const res = await uploadAsset(p.thumbnailFile);
-        finalThumbUrl = res.url;
-      }
+      const finalThumbUrl = await resolveThumbnailUrl();
 
-      // upload gallery
       setUploadMsg("Uploading gallery images...");
-      const finalGallery = [];
-      for (const file of p.galleryFiles) {
-        if (typeof file === "string") {
-          finalGallery.push(file);
-        } else {
-          const res = await uploadAsset(file);
-          finalGallery.push(res.url);
-        }
-      }
+      const finalGallery = await resolveGalleryUrls();
 
       setUploadMsg("Saving product...");
 
@@ -302,6 +340,7 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
         category:     p.category,
         slug:         p.slug.trim(),
         modelUrl:     finalModelUrl,
+        usdzUrl:      finalUsdzUrl          || null,
         thumbnailUrl: finalThumbUrl        || null,
         galleryUrls:  finalGallery,
         features:     p.highlights,
@@ -620,6 +659,55 @@ export default function ProductForm({ initialProduct = null, isEditMode = false,
                 >
                   📱 Upload from mobile
                 </button>
+              </div>
+
+              {/* USDZ — optional, for iPhone AR Quick Look */}
+              <div className="border-t border-white/[0.06] px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold text-slate-400">USDZ (iOS AR)</span>
+                  <span className="text-[9px] text-slate-600 uppercase">Optional</span>
+                </div>
+                {p.usdzUrl ? (
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-emerald-400 truncate flex-1">
+                      {p.rawUsdzFile?.name || p.usdzUrl.split("/").pop()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        set("usdzUrl", "");
+                        set("rawUsdzFile", null);
+                      }}
+                      className="text-cyan-400 shrink-0"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById("usdz-input").click()}
+                    className="w-full py-2 border border-dashed border-white/10 rounded-lg text-[11px] text-slate-500 hover:text-slate-300"
+                  >
+                    Add .usdz for iPhone AR
+                  </button>
+                )}
+                <input
+                  id="usdz-input"
+                  type="file"
+                  hidden
+                  accept=".usdz"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      set("rawUsdzFile", file);
+                      set("usdzUrl", file.name);
+                    }
+                  }}
+                />
+                <p className="text-[10px] text-slate-600 mt-2">
+                  Without USDZ, iOS may use the GLB only. USDZ gives better AR on Safari.
+                </p>
               </div>
             </div>
 

@@ -1,5 +1,26 @@
 const db = require('../db');
 const storageService = require('../services/storageService');
+const { isValidStoredUrl } = require('../utils/urls');
+
+function validateProductAssets({ modelUrl, usdzUrl, thumbnailUrl, galleryUrls }) {
+  if (!isValidStoredUrl(modelUrl)) {
+    return 'A valid 3D model URL is required. Upload the GLB file before saving.';
+  }
+  if (usdzUrl && !isValidStoredUrl(usdzUrl)) {
+    return 'USDZ file must be uploaded to storage (required for iOS AR Quick Look).';
+  }
+  if (thumbnailUrl && !isValidStoredUrl(thumbnailUrl)) {
+    return 'Thumbnail must be uploaded to storage (invalid or temporary URL).';
+  }
+  if (Array.isArray(galleryUrls)) {
+    for (const url of galleryUrls) {
+      if (url && !isValidStoredUrl(url)) {
+        return 'Gallery images must use storage URLs only.';
+      }
+    }
+  }
+  return null;
+}
 
 // POST /api/products/upload-asset
 exports.uploadAsset = async (req, res, next) => {
@@ -9,12 +30,16 @@ exports.uploadAsset = async (req, res, next) => {
 
   try {
     const ext = req.file.originalname.split('.').pop().toLowerCase();
-    const folder = ['glb', 'gltf'].includes(ext) ? 'models' : 'images';
+    const folder = ['glb', 'gltf', 'usdz'].includes(ext) ? 'models' : 'images';
     
     const uploadResult = await storageService.uploadFile(req.file, folder);
+    if (!uploadResult?.publicUrl) {
+      return res.status(500).json({ error: 'Upload succeeded but no public URL was returned' });
+    }
     return res.status(201).json({
       success: true,
-      url: uploadResult.publicUrl
+      url: uploadResult.publicUrl,
+      path: uploadResult.filePath,
     });
   } catch (error) {
     console.error('Asset upload controller error:', error);
@@ -112,8 +137,9 @@ exports.createProduct = async (req, res, next) => {
   if (!category) {
     return res.status(400).json({ error: 'Category is required' });
   }
-  if (!modelUrl) {
-    return res.status(400).json({ error: '3D GLB Model upload is required' });
+  const assetError = validateProductAssets({ modelUrl, usdzUrl, thumbnailUrl, galleryUrls });
+  if (assetError) {
+    return res.status(400).json({ error: assetError });
   }
 
   try {
@@ -223,8 +249,9 @@ exports.updateProduct = async (req, res, next) => {
   if (!category) {
     return res.status(400).json({ error: 'Category is required' });
   }
-  if (!modelUrl) {
-    return res.status(400).json({ error: '3D GLB Model upload is required' });
+  const assetError = validateProductAssets({ modelUrl, usdzUrl, thumbnailUrl, galleryUrls });
+  if (assetError) {
+    return res.status(400).json({ error: assetError });
   }
   if (!slug || typeof slug !== 'string' || slug.trim() === '') {
     return res.status(400).json({ error: 'Product slug is required' });

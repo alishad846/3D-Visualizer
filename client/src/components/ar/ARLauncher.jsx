@@ -23,6 +23,9 @@ export default function ARLauncher({ modelUrl, usdzUrl, onArLaunch }) {
     const mvRef = useRef(null);
     const { platform, arSupported, loading } = useARSession();
     const [arError, setArError] = useState(null);
+    const iosNeedsUsdz = platform === 'ios';
+    const hasUsdz = Boolean(usdzUrl);
+    const canLaunchAr = arSupported && (!iosNeedsUsdz || hasUsdz);
 
     // Desktop → render nothing at all
     if (platform === 'desktop') return null;
@@ -72,8 +75,8 @@ export default function ARLauncher({ modelUrl, usdzUrl, onArLaunch }) {
                 style={{ position: 'absolute', width: 0, height: 0, visibility: 'hidden', pointerEvents: 'none' }}
             />
 
-            {/* AR BUTTON — shown only on supported mobile devices */}
-            {arSupported ? (
+            {/* AR BUTTON — shown only when current platform has a valid AR asset path */}
+            {canLaunchAr ? (
                 <button
                     id="ar-launch-button"
                     onClick={handleLaunchAR}
@@ -91,7 +94,9 @@ export default function ARLauncher({ modelUrl, usdzUrl, onArLaunch }) {
             ) : (
                 /* Graceful muted message for unsupported mobile browsers */
                 <p className="text-sm text-slate-500 text-center px-4">
-                    {platform === 'ios'
+                    {platform === 'ios' && !hasUsdz
+                        ? 'AR requires a USDZ file for iPhone/iPad.'
+                        : platform === 'ios'
                         ? 'AR requires Safari on iPhone or iPad.'
                         : 'AR not supported on this browser.'}
                 </p>

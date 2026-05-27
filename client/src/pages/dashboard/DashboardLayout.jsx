@@ -8,7 +8,6 @@ import {
   User,
   Heart,
   Layers,
-  BarChart3,
   Settings,
   Search,
   Bell,
@@ -59,9 +58,9 @@ export default function DashboardLayout() {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Heart, label: 'Favorites', path: '/dashboard/favorites' },
     { icon: Layers, label: 'Products', path: '/dashboard/products' }, // Maps to products
-    { icon: BarChart3, label: 'Project Analysis', path: '/dashboard/project-view' }, // Maps to project-view / analytics
     { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
   ];
+  const isProductAnalysisActive = location.pathname === '/dashboard/analytics';
 
   const handleNewProject = () => {
     navigate('/add-project');
@@ -105,6 +104,34 @@ export default function DashboardLayout() {
                 </Link>
               );
             })}
+
+            {/* Analytics tree group */}
+            <div className="pt-2">
+              <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
+                Analytics
+              </div>
+              <div className="pl-5 space-y-1">
+                <Link
+                  to="/dashboard/analytics"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                    isProductAnalysisActive
+                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {isProductAnalysisActive && (
+                    <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                  )}
+                  Product Analysis
+                </Link>
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-lg text-sm text-slate-400 opacity-40 cursor-default select-none">
+                  <span>Project Analysis</span>
+                  <span className="bg-[rgba(255,255,255,0.1)] text-[#A0A0A0] text-[8px] leading-none px-[5px] py-[1px] rounded">
+                    Soon
+                  </span>
+                </div>
+              </div>
+            </div>
           </nav>
         </div>
 
@@ -195,6 +222,32 @@ export default function DashboardLayout() {
                     </Link>
                   );
                 })}
+                <div className="pt-2">
+                  <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
+                    Analytics
+                  </div>
+                  <div className="pl-5 space-y-1">
+                    <Link
+                      to="/dashboard/analytics"
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                        isProductAnalysisActive
+                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {isProductAnalysisActive && (
+                        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                      )}
+                      Product Analysis
+                    </Link>
+                    <div className="flex items-center justify-between px-4 py-2.5 rounded-lg text-sm text-slate-400 opacity-40 cursor-default select-none">
+                      <span>Project Analysis</span>
+                      <span className="bg-[rgba(255,255,255,0.1)] text-[#A0A0A0] text-[8px] leading-none px-[5px] py-[1px] rounded">
+                        Soon
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </nav>
             </div>
 

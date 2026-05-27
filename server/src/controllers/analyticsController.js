@@ -60,10 +60,10 @@ exports.getProductOverview = async (req, res) => {
       `SELECT
          COUNT(qs.id) AS total_scans,
          COUNT(DISTINCT qs.ip_hash) FILTER (WHERE qs.ip_hash IS NOT NULL) AS unique_visitors,
-         ROUND(AVG(qs.session_duration_seconds)) FILTER (
+         ROUND(AVG(qs.session_duration_seconds) FILTER (
            WHERE qs.session_duration_seconds IS NOT NULL
            AND qs.session_duration_seconds > 0
-         ) AS avg_session_seconds,
+         )) AS avg_session_seconds,
          COUNT(qs.id) FILTER (
            WHERE qs.scanned_at >= NOW() - INTERVAL '28 days'
          ) AS total_28,
@@ -510,10 +510,10 @@ exports.getProductSessions = async (req, res) => {
          COUNT(*) FILTER (
            WHERE qs.session_duration_seconds IS NOT NULL
          ) AS total_with_duration,
-         ROUND(AVG(qs.session_duration_seconds)) FILTER (
+         ROUND(AVG(qs.session_duration_seconds) FILTER (
            WHERE qs.session_duration_seconds IS NOT NULL
            AND qs.session_duration_seconds > 0
-         ) AS avg_session_seconds
+         )) AS avg_session_seconds
        FROM products p
        INNER JOIN projects proj ON p.project_id = proj.id
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
@@ -559,10 +559,10 @@ exports.getProjectOverview = async (req, res) => {
       `SELECT
          COUNT(qs.id) AS total_scans,
          COUNT(DISTINCT qs.ip_hash) FILTER (WHERE qs.ip_hash IS NOT NULL) AS unique_visitors,
-         ROUND(AVG(qs.session_duration_seconds)) FILTER (
+         ROUND(AVG(qs.session_duration_seconds) FILTER (
            WHERE qs.session_duration_seconds IS NOT NULL
            AND qs.session_duration_seconds > 0
-         ) AS avg_session_seconds,
+         )) AS avg_session_seconds,
          COUNT(qs.id) FILTER (
            WHERE qs.scanned_at >= NOW() - INTERVAL '28 days'
          ) AS total_28,

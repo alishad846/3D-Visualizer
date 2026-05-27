@@ -12,9 +12,9 @@ import Products        from "./pages/dashboard/Products";
 import Settings        from "./pages/dashboard/Settings";
 import ProjectView     from "./pages/dashboard/ProjectView";
 import Favorites       from "./pages/dashboard/Favorites";
-import Landing         from "./pages/Landing";
-import Showcase        from "./pages/Showcase";
-import Scan            from "./pages/Scan";
+import Analytics       from "./pages/dashboard/Analytics";
+// import Landing         from "./pages/Landing";
+import Landing         from "./pages/LandingHome";
 import ProductSuccess  from "./pages/product/ProductSuccess";
 import ScannedProductUI from "./pages/product/ScannedProductUI";
 import MobileUpload    from "./pages/product/MobileUpload";
@@ -35,9 +35,9 @@ export default function App() {
         <Route path="/"                       element={<Landing />} />
         <Route path="/register"               element={<Register />} />
         <Route path="/login"                  element={<Login />} />
-        <Route path="/showcase"               element={<Showcase />} />
-        <Route path="/scan"                   element={<Scan />} />
-        <Route path="/scanned-result"         element={<ScannedProductUI />} />
+        <Route path="/showcase"               element={<Navigate to="/#examples" replace />} />
+        <Route path="/scan"                   element={<Navigate to="/#scan" replace />} />
+        <Route path="/scanned-result"         element={<Navigate to="/#scan" replace />} />
         <Route path="/mobile-upload/:sessionId" element={<MobileUpload />} />
         <Route path="/product-success"        element={<ProductSuccess />} />
 
@@ -54,6 +54,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index                    element={<DashboardHome />} />
             <Route path="products"          element={<Products />} />
+            <Route path="analytics"         element={<Analytics />} />
             <Route path="settings"          element={<Settings />} />
             <Route path="project-view"      element={<ProjectView />} />
             <Route path="favorites"         element={<Favorites />} />

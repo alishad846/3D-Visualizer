@@ -104,3 +104,31 @@ export const authRequest = (path, options = {}) =>
 
 export const publicRequest = (path, options = {}) =>
   apiRequest(path, options, false);
+
+/**
+ * Multipart upload with the same 401 refresh + retry behavior as authRequest.
+ */
+export async function authUpload(path, formData) {
+  const store = await getStore();
+
+  const buildConfig = (token) => ({
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  let { accessToken } = store.getState();
+  let response = await fetch(`${BASE_URL}${path}`, buildConfig(accessToken));
+
+  if (response.status === 401) {
+    try {
+      accessToken = await refreshTokenOnce();
+      response = await fetch(`${BASE_URL}${path}`, buildConfig(accessToken));
+    } catch {
+      return response;
+    }
+  }
+
+  return response;
+}

@@ -2,7 +2,7 @@ const { supabase } = require('../config/supabase');
 
 class StorageService {
   constructor() {
-    this.bucketName = 'scanvista-assets';
+    this.bucketName = 'models';
     this.bucketEnsured = false;
   }
 
@@ -44,12 +44,23 @@ class StorageService {
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
     const fileName = `${folder}/${uniqueId}.${fileExt}`;
 
-    // Upload buffer to Supabase storage
-    const { data, error } = await supabase.storage
+    const contentTypeMap = {
+      glb: 'model/gltf-binary',
+      gltf: 'model/gltf+json',
+      usdz: 'model/vnd.usdz+zip',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      webp: 'image/webp',
+      svg: 'image/svg+xml',
+    };
+    const contentType = contentTypeMap[fileExt] || file.mimetype || 'application/octet-stream';
+
+    const { error } = await supabase.storage
       .from(this.bucketName)
       .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        upsert: true
+        contentType,
+        upsert: false,
       });
 
     if (error) {

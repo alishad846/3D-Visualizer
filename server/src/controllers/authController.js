@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { maskPII } = require('../utils/pii');
+const { JWT_SECRET, JWT_REFRESH_SECRET, hashRefreshToken } = require('../utils/tokens');
 
 // Helper to validate email format
 const isValidEmail = (email) => {
@@ -46,18 +46,17 @@ exports.register = async (req, res, next) => {
     // 5. Generate Tokens
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
-      process.env.JWT_REFRESH_SECRET || 'super_secret_scanvista_jwt_refresh_key_67890',
+      JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
-    // 6. Hash refresh token and save to DB
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -122,18 +121,17 @@ exports.login = async (req, res, next) => {
     // 4. Generate Tokens
     const accessToken = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
     const refreshToken = jwt.sign(
       { userId: user.id },
-      process.env.JWT_REFRESH_SECRET || 'super_secret_scanvista_jwt_refresh_key_67890',
+      JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
-    // 5. Store hashed refresh token in database
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    const refreshTokenHash = hashRefreshToken(refreshToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -178,10 +176,7 @@ exports.refresh = async (req, res, next) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(
-      refreshToken,
-      process.env.JWT_REFRESH_SECRET || 'super_secret_scanvista_jwt_refresh_key_67890'
-    );
+    decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
   } catch (err) {
     console.error('Refresh token verification failed:', err.message);
     return res.status(401).json({ error: 'Invalid or expired refresh token' });
@@ -196,15 +191,8 @@ exports.refresh = async (req, res, next) => {
       [userId]
     );
 
-    // 2. Perform bcrypt compare to find matching row
-    let matchedTokenRow = null;
-    for (const row of dbTokens.rows) {
-      const isMatch = await bcrypt.compare(refreshToken, row.token_hash);
-      if (isMatch) {
-        matchedTokenRow = row;
-        break;
-      }
-    }
+    const refreshHash = hashRefreshToken(refreshToken);
+    const matchedTokenRow = dbTokens.rows.find((row) => row.token_hash === refreshHash) || null;
 
     // 3. Security measure: if no matching row found (compromised or reused token)
     if (!matchedTokenRow) {
@@ -239,17 +227,17 @@ exports.refresh = async (req, res, next) => {
 
     const newAccessToken = jwt.sign(
       { userId: user.id, email: user.email },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
     const newRefreshToken = jwt.sign(
       { userId: user.id },
-      process.env.JWT_REFRESH_SECRET || 'super_secret_scanvista_jwt_refresh_key_67890',
+      JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
-    const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
+    const newRefreshTokenHash = hashRefreshToken(newRefreshToken);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -287,10 +275,7 @@ exports.logout = async (req, res, next) => {
   try {
     let decoded;
     try {
-      decoded = jwt.verify(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET || 'super_secret_scanvista_jwt_refresh_key_67890'
-      );
+      decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
     } catch (err) {
       res.clearCookie('refreshToken');
       return res.status(200).json({ success: true, message: 'Logged out successfully' });
@@ -304,12 +289,10 @@ exports.logout = async (req, res, next) => {
       [userId]
     );
 
-    for (const row of dbTokens.rows) {
-      const isMatch = await bcrypt.compare(refreshToken, row.token_hash);
-      if (isMatch) {
-        await db.query('DELETE FROM refresh_tokens WHERE id = $1', [row.id]);
-        break;
-      }
+    const logoutHash = hashRefreshToken(refreshToken);
+    const matched = dbTokens.rows.find((row) => row.token_hash === logoutHash);
+    if (matched) {
+      await db.query('DELETE FROM refresh_tokens WHERE id = $1', [matched.id]);
     }
 
     res.clearCookie('refreshToken');

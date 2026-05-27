@@ -4,9 +4,11 @@ import { motion } from 'framer-motion';
 import { View } from 'lucide-react';
 import SphereLogo from '../../components/SphereLogo';
 import { registerUser } from '../../api/auth';
+import { useAuthStore } from '../../store/authStore';
 
 export default function Register() {
   const navigate = useNavigate();
+  const setAuth = useAuthStore((s) => s.setAuth);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [name, setName] = useState('');
@@ -19,9 +21,10 @@ export default function Register() {
     setError('');
     setLoading(true);
     try {
-      await registerUser({ name, email, password });
+      const data = await registerUser({ name, email, password });
+      setAuth(data.accessToken, data.user);
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
+      setTimeout(() => navigate('/dashboard'), 1200);
     } catch (err) {
       setError(err.message || 'Registration failed');
     } finally {
@@ -87,8 +90,8 @@ export default function Register() {
               <div className="w-16 h-16 bg-[#00F0FF]/10 rounded-full flex items-center justify-center mb-4">
                 <div className="w-8 h-8 bg-[#00F0FF] rounded-full flex items-center justify-center text-black font-bold">✓</div>
               </div>
-              <h3 className="text-xl font-display font-medium mb-2 text-[#00F0FF]">Registered Successfully!</h3>
-              <p className="text-[#A0A0A0] text-sm">Redirecting to login...</p>
+              <h3 className="text-xl font-display font-medium mb-2 text-[#00F0FF]">Account created</h3>
+              <p className="text-[#A0A0A0] text-sm">Taking you to the dashboard…</p>
             </motion.div>
           ) : (
             <form onSubmit={handleRegister} className="space-y-6">

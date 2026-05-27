@@ -1,18 +1,23 @@
 const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config/env');
 
 module.exports = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) {
+  if (!JWT_SECRET) {
+    return res.status(500).json({ error: 'Auth is not configured on the server' });
+  }
+
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  const token = authHeader.split(' ')[1];
+  const token = authHeader.slice(7).trim();
   if (!token) {
     return res.status(401).json({ error: 'Invalid access token format' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = {
       userId: decoded.userId,
       email: decoded.email

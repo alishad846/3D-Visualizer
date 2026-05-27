@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 require('dotenv').config();
+require('./config/env');
 
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
