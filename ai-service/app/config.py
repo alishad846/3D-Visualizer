@@ -7,5 +7,5 @@ class Settings(BaseSettings):
     DATABASE_URL: str = ""
 
     model_config = {"env_file": ".env"}
-    
+
 settings = Settings()

@@ -1,6 +1,17 @@
 const db = require('../db');
 const storageService = require('../services/storageService');
+const recommendService = require('../services/recommendService');
 const { isValidStoredUrl } = require('../utils/urls');
+
+function refreshEmbeddingInBackground(productOrId) {
+  const task = typeof productOrId === 'object'
+    ? recommendService.refreshProductEmbedding(productOrId)
+    : recommendService.refreshProductEmbeddingById(productOrId);
+
+  task.catch((error) => {
+    console.warn('[ProductController] Embedding refresh failed:', error.message);
+  });
+}
 
 function validateProductAssets({ modelUrl, usdzUrl, thumbnailUrl, galleryUrls }) {
   if (!isValidStoredUrl(modelUrl)) {
@@ -208,6 +219,8 @@ exports.createProduct = async (req, res, next) => {
       ]
     );
 
+    refreshEmbeddingInBackground(result.rows[0]);
+
     return res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating product:', error);
@@ -330,6 +343,8 @@ exports.updateProduct = async (req, res, next) => {
       ]
     );
 
+    refreshEmbeddingInBackground(result.rows[0]);
+
     return res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating product:', error);
@@ -408,6 +423,8 @@ exports.publishProduct = async (req, res, next) => {
     }
 
     await db.query('COMMIT');
+
+    refreshEmbeddingInBackground(product.id);
 
     return res.json({
       success: true,

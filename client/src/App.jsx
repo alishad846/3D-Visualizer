@@ -13,13 +13,14 @@ import Settings        from "./pages/dashboard/Settings";
 import ProjectView     from "./pages/dashboard/ProjectView";
 import Favorites       from "./pages/dashboard/Favorites";
 import Analytics       from "./pages/dashboard/Analytics";
-// import Landing         from "./pages/Landing";
+import ProjectAnalytics from "./pages/dashboard/ProjectAnalytics";
 import Landing         from "./pages/LandingHome";
 import ProductSuccess  from "./pages/product/ProductSuccess";
 import ScannedProductUI from "./pages/product/ScannedProductUI";
 import MobileUpload    from "./pages/product/MobileUpload";
 import AddProject      from "./pages/project/AddProject";
 import QRRedirector    from "./pages/product/QRRedirector";
+import CompareProducts from "./pages/product/CompareProducts";
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/viewer"                 element={<ProductViewer />} />
         <Route path="/viewer/:productId"      element={<ProductViewer />} />
         <Route path="/p/:productId"           element={<ProductViewer />} />
+        <Route path="/compare/:productId"     element={<CompareProducts />} />
         <Route path="/s/:token"               element={<QRRedirector />} />
 
         {/* ── PROTECTED ROUTES ── */}
@@ -55,6 +57,7 @@ export default function App() {
             <Route index                    element={<DashboardHome />} />
             <Route path="products"          element={<Products />} />
             <Route path="analytics"         element={<Analytics />} />
+            <Route path="analytics/project" element={<ProjectAnalytics />} />
             <Route path="settings"          element={<Settings />} />
             <Route path="project-view"      element={<ProjectView />} />
             <Route path="favorites"         element={<Favorites />} />

@@ -22,6 +22,7 @@ async function ensureDb() {
   console.log('[ensure-db] Checking database...');
 
   await db.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+  await db.query('CREATE EXTENSION IF NOT EXISTS vector');
 
   const { rows } = await db.query(
     `SELECT EXISTS (

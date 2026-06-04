@@ -1,21 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { Maximize2, Box, Mic } from "lucide-react";
+import { Link, useParams } from "react-router-dom";
+import { Maximize2, Box, Bot, Scale } from "lucide-react";
 
 import ProductCanvas from "./canvas/ProductCanvas";
 import ARLauncher from "../../ar/ARLauncher";
 import { fetchProductById, logProductScan } from "../../../api/viewer";
+import ProductAssistantOverlay from "./ProductAssistantOverlay";
 
 const defaultProduct = {
     name: "Sony WH-1000XM5",
+    id: null,
     category: "",
+    brand: "",
     tagline: "",
     description: "",
     modelUrl: "/models/headphone.glb",
     usdzUrl: null,
     buyUrl: null,
+    price: null,
+    currency: "",
+    aiSummary: "",
     features: [],
     specifications: [],
+    rawSpecs: [],
 };
 
 export default function ProductViewer() {
@@ -30,6 +37,13 @@ export default function ProductViewer() {
     const canvasPanelRef = useRef(null);
     const [layoutMode, setLayoutMode] = useState("ADAPTIVE"); // 'COMPACT' | 'ADAPTIVE' | 'EXPANDED'
     const [mode, setMode] = useState("viewer"); // 'viewer' | 'detail_sheet' | 'ar'
+    const [assistantOpen, setAssistantOpen] = useState(false);
+    const [assistantSessionId] = useState(() => {
+        if (typeof crypto !== "undefined" && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return `viewer-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    });
     const [sheetState, setSheetState] = useState("peek"); // 'peek' | 'half' | 'full'
     const touchStartYRef = useRef(null);
     const sheetContentRef = useRef(null);
@@ -63,15 +77,21 @@ export default function ProductViewer() {
                     ? data.features.filter(Boolean).slice(0, 10)
                     : [];
                 setProduct({
+                    id: data.id || null,
                     name: data.name || "",
                     category: data.category || "",
+                    brand: data.brand || "",
                     tagline: data.tagline || "",
                     description: data.description || "",
                     modelUrl: data.model_url || defaultProduct.modelUrl,
                     usdzUrl: data.usdz_url || null,
                     buyUrl: data.buy_url || null,
+                    price: data.price ?? null,
+                    currency: data.currency || "",
+                    aiSummary: data.ai_summary || "",
                     features: normalizedFeatures,
                     specifications: normalizedSpecs,
+                    rawSpecs: Array.isArray(data.specs) ? data.specs : [],
                 });
             })
             .catch((err) => {
@@ -284,14 +304,41 @@ export default function ProductViewer() {
                             ) : null}
                         </div>
                     </div>
-                    {/* Zoom indicator only (controls remain on gestures) */}
-                    <div className="px-2 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] text-cyan-200 font-semibold">
-                        {zoomPercent}%
+                    <div className="flex items-center gap-2">
+                        {productId ? (
+                            <Link
+                                to={`/compare/${encodeURIComponent(productId)}`}
+                                className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-100 backdrop-blur-md transition hover:border-cyan-300/45 hover:bg-cyan-300/10"
+                            >
+                                <Scale size={14} />
+                                Compare
+                            </Link>
+                        ) : null}
+                        <button
+                            type="button"
+                            onClick={() => setAssistantOpen((value) => !value)}
+                            className="flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-100 backdrop-blur-md transition hover:border-cyan-300/45 hover:bg-cyan-300/10"
+                        >
+                            <Bot size={14} />
+                            AI
+                        </button>
+                        <div className="px-2 py-1 rounded-full bg-black/40 border border-white/10 text-[11px] text-cyan-200 font-semibold">
+                            {zoomPercent}%
+                        </div>
                     </div>
                 </div>
 
                 {/* AR button — floats above canvas, bottom-right */}
-                <div className={`absolute ${isCompact ? "bottom-28 right-4" : "bottom-24 right-5"} z-30`}>
+                <div className={`absolute ${isCompact ? "bottom-28 right-4" : "bottom-24 right-5"} z-30 flex flex-col items-end gap-2`}>
+                    {productId ? (
+                        <Link
+                            to={`/compare/${encodeURIComponent(productId)}`}
+                            className="flex h-11 items-center gap-2 rounded-full border border-white/15 bg-black/55 px-4 text-xs font-semibold uppercase tracking-[0.14em] text-cyan-100 shadow-lg backdrop-blur-md transition hover:border-cyan-300/50 hover:bg-cyan-300/15"
+                        >
+                            <Scale size={15} />
+                            Compare
+                        </Link>
+                    ) : null}
                     <ARLauncher
                         modelUrl={product.modelUrl}
                         usdzUrl={product.usdzUrl}
@@ -413,6 +460,15 @@ export default function ProductViewer() {
                         </div>
                     </div>
                 </div>
+
+                <div className="pointer-events-none absolute bottom-4 right-4 top-20 z-50 flex justify-end">
+                    <ProductAssistantOverlay
+                        open={assistantOpen}
+                        onClose={() => setAssistantOpen(false)}
+                        product={product}
+                        sessionId={assistantSessionId}
+                    />
+                </div>
             </div>
         );
     }
@@ -430,11 +486,30 @@ export default function ProductViewer() {
                 </div>
 
                 {/* AR launcher — desktop renders nothing, mobile shows button */}
-                <ARLauncher
-                    modelUrl={product.modelUrl}
-                    usdzUrl={product.usdzUrl}
-                    onArLaunch={handleArLaunch}
-                />
+                <div className="flex items-center gap-2">
+                    {productId ? (
+                        <Link
+                            to={`/compare/${encodeURIComponent(productId)}`}
+                            className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-300/45 hover:bg-cyan-300/10 hover:text-white"
+                        >
+                            <Scale size={16} />
+                            Compare
+                        </Link>
+                    ) : null}
+                    <button
+                        type="button"
+                        onClick={() => setAssistantOpen((value) => !value)}
+                        className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-3 py-2 text-sm font-bold text-slate-950 transition hover:bg-cyan-200"
+                    >
+                        <Bot size={16} />
+                        AI Assistant
+                    </button>
+                    <ARLauncher
+                        modelUrl={product.modelUrl}
+                        usdzUrl={product.usdzUrl}
+                        onArLaunch={handleArLaunch}
+                    />
+                </div>
             </div>
 
             {/* EXPANDED layout */}
@@ -570,18 +645,34 @@ export default function ProductViewer() {
                             <Box size={16} />
                         </button>
 
+                        {productId ? (
+                            <Link
+                                to={`/compare/${encodeURIComponent(productId)}`}
+                                title="Compare products"
+                                className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                                style={{
+                                    background: "rgba(255,255,255,0.08)",
+                                    backdropFilter: "blur(8px)",
+                                    border: "1px solid rgba(255,255,255,0.12)",
+                                }}
+                            >
+                                <Scale size={16} />
+                            </Link>
+                        ) : null}
+
                         {/* Voice / mic — Phase 2, stubbed */}
                         <button
                             type="button"
-                            title="Voice assistant (coming soon)"
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 cursor-not-allowed opacity-50"
+                            title="AI assistant"
+                            onClick={() => setAssistantOpen((value) => !value)}
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-300 hover:text-white transition-colors"
                             style={{
                                 background: "rgba(255,255,255,0.08)",
                                 backdropFilter: "blur(8px)",
                                 border: "1px solid rgba(255,255,255,0.12)",
                             }}
                         >
-                            <Mic size={16} />
+                            <Bot size={16} />
                         </button>
 
                         {/* Fullscreen — functional */}
@@ -601,7 +692,16 @@ export default function ProductViewer() {
                     </div>
 
                     {/* Zoom controls — bottom right */}
-                    <div className="absolute bottom-6 right-6 z-20 flex items-center gap-2 bg-[#0a1224]/80 border border-cyan-400/20 rounded-xl px-2 py-1.5 backdrop-blur-md">
+                    <div className="pointer-events-none absolute bottom-6 right-6 top-16 z-30 flex justify-end">
+                        <ProductAssistantOverlay
+                            open={assistantOpen}
+                            onClose={() => setAssistantOpen(false)}
+                            product={product}
+                            sessionId={assistantSessionId}
+                        />
+                    </div>
+
+                    <div className={`absolute bottom-6 ${assistantOpen ? "left-6 right-auto" : "right-6"} z-20 flex items-center gap-2 bg-[#0a1224]/80 border border-cyan-400/20 rounded-xl px-2 py-1.5 backdrop-blur-md`}>
                         <button
                             type="button"
                             onClick={() => canvasRef.current?.zoomOut?.()}

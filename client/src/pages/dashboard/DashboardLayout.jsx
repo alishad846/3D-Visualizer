@@ -124,12 +124,19 @@ export default function DashboardLayout() {
                   )}
                   Product Analysis
                 </Link>
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-lg text-sm text-slate-400 opacity-40 cursor-default select-none">
-                  <span>Project Analysis</span>
-                  <span className="bg-[rgba(255,255,255,0.1)] text-[#A0A0A0] text-[8px] leading-none px-[5px] py-[1px] rounded">
-                    Soon
-                  </span>
-                </div>
+                <Link
+                  to="/dashboard/analytics/project"
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                    location.pathname === '/dashboard/analytics/project'
+                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {location.pathname === '/dashboard/analytics/project' && (
+                    <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                  )}
+                  Project Analysis
+                </Link>
               </div>
             </div>
           </nav>
@@ -240,12 +247,19 @@ export default function DashboardLayout() {
                       )}
                       Product Analysis
                     </Link>
-                    <div className="flex items-center justify-between px-4 py-2.5 rounded-lg text-sm text-slate-400 opacity-40 cursor-default select-none">
-                      <span>Project Analysis</span>
-                      <span className="bg-[rgba(255,255,255,0.1)] text-[#A0A0A0] text-[8px] leading-none px-[5px] py-[1px] rounded">
-                        Soon
-                      </span>
-                    </div>
+                    <Link
+                      to="/dashboard/analytics/project"
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                        location.pathname === '/dashboard/analytics/project'
+                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                          : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {location.pathname === '/dashboard/analytics/project' && (
+                        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                      )}
+                      Project Analysis
+                    </Link>
                   </div>
                 </div>
               </nav>
@@ -306,6 +320,8 @@ export default function DashboardLayout() {
               {location.pathname === '/dashboard/products' && 'Asset Library'}
               {location.pathname === '/dashboard/project-view' && 'Deep Analysis'}
               {location.pathname === '/dashboard' && 'Creator Side'}
+              {location.pathname === '/dashboard/analytics' && 'Product Analysis'}
+              {location.pathname === '/dashboard/analytics/project' && 'Project Analysis'}
             </h1>
 
             {/* WORKSPACE SWITCHER */}
@@ -316,7 +332,6 @@ export default function DashboardLayout() {
                   type="button"
                   onClick={() => {
                     setProjectDropdownOpen(!projectDropdownOpen);
-                    setProductDropdownOpen(false);
                   }}
                   className="flex items-center gap-2 px-3 py-2 rounded-xl border border-[#1d2d4a] hover:border-[#00F0FF]/40 bg-[#11192b]/80 hover:bg-[#1a263f]/60 transition-all text-xs font-bold text-slate-200 cursor-pointer"
                 >

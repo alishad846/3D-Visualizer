@@ -32,5 +32,6 @@ module.exports = {
   SUPABASE_URL: process.env.SUPABASE_URL || '',
   SUPABASE_KEY: process.env.SUPABASE_KEY || '',
   CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
+  AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://localhost:8000',
   isProduction,
 };

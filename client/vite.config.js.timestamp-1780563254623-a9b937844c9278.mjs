@@ -1,0 +1,25 @@
+// vite.config.js
+import { defineConfig } from "file:///C:/Users/hp/Desktop/scanvista/client/node_modules/vite/dist/node/index.js";
+import react from "file:///C:/Users/hp/Desktop/scanvista/client/node_modules/@vitejs/plugin-react/dist/index.js";
+var vite_config_default = defineConfig({
+  plugins: [react()],
+  // ── Three.js deduplication ──────────────────────────────────────
+  // "@react-three/fiber" and "@react-three/drei" each resolve their
+  // own copy of the "three" package from their own node_modules. When
+  // the app also lists "three" as a direct dependency Vite ends up
+  // bundling two separate copies, which triggers the runtime warning
+  // "Multiple instances of Three.js being imported".
+  //
+  // dedupe forces Vite to treat "three" as a single shared module
+  // regardless of which import path resolves it.
+  resolve: {
+    dedupe: ["three"]
+  },
+  optimizeDeps: {
+    exclude: ["@google/model-viewer"]
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcuanMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCJDOlxcXFxVc2Vyc1xcXFxocFxcXFxEZXNrdG9wXFxcXHNjYW52aXN0YVxcXFxjbGllbnRcIjtjb25zdCBfX3ZpdGVfaW5qZWN0ZWRfb3JpZ2luYWxfZmlsZW5hbWUgPSBcIkM6XFxcXFVzZXJzXFxcXGhwXFxcXERlc2t0b3BcXFxcc2NhbnZpc3RhXFxcXGNsaWVudFxcXFx2aXRlLmNvbmZpZy5qc1wiO2NvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9pbXBvcnRfbWV0YV91cmwgPSBcImZpbGU6Ly8vQzovVXNlcnMvaHAvRGVza3RvcC9zY2FudmlzdGEvY2xpZW50L3ZpdGUuY29uZmlnLmpzXCI7aW1wb3J0IHsgZGVmaW5lQ29uZmlnIH0gZnJvbSBcInZpdGVcIjtcclxuXHJcbmltcG9ydCByZWFjdCBmcm9tIFwiQHZpdGVqcy9wbHVnaW4tcmVhY3RcIjtcclxuXHJcbmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7XHJcblxyXG4gIHBsdWdpbnM6IFtyZWFjdCgpXSxcclxuXHJcbiAgLy8gXHUyNTAwXHUyNTAwIFRocmVlLmpzIGRlZHVwbGljYXRpb24gXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHUyNTAwXHJcbiAgLy8gXCJAcmVhY3QtdGhyZWUvZmliZXJcIiBhbmQgXCJAcmVhY3QtdGhyZWUvZHJlaVwiIGVhY2ggcmVzb2x2ZSB0aGVpclxyXG4gIC8vIG93biBjb3B5IG9mIHRoZSBcInRocmVlXCIgcGFja2FnZSBmcm9tIHRoZWlyIG93biBub2RlX21vZHVsZXMuIFdoZW5cclxuICAvLyB0aGUgYXBwIGFsc28gbGlzdHMgXCJ0aHJlZVwiIGFzIGEgZGlyZWN0IGRlcGVuZGVuY3kgVml0ZSBlbmRzIHVwXHJcbiAgLy8gYnVuZGxpbmcgdHdvIHNlcGFyYXRlIGNvcGllcywgd2hpY2ggdHJpZ2dlcnMgdGhlIHJ1bnRpbWUgd2FybmluZ1xyXG4gIC8vIFwiTXVsdGlwbGUgaW5zdGFuY2VzIG9mIFRocmVlLmpzIGJlaW5nIGltcG9ydGVkXCIuXHJcbiAgLy9cclxuICAvLyBkZWR1cGUgZm9yY2VzIFZpdGUgdG8gdHJlYXQgXCJ0aHJlZVwiIGFzIGEgc2luZ2xlIHNoYXJlZCBtb2R1bGVcclxuICAvLyByZWdhcmRsZXNzIG9mIHdoaWNoIGltcG9ydCBwYXRoIHJlc29sdmVzIGl0LlxyXG4gIHJlc29sdmU6IHtcclxuICAgIGRlZHVwZTogW1widGhyZWVcIl0sXHJcbiAgfSxcclxuXHJcbiAgb3B0aW1pemVEZXBzOiB7XHJcbiAgICBleGNsdWRlOiBbXCJAZ29vZ2xlL21vZGVsLXZpZXdlclwiXSxcclxuICB9LFxyXG5cclxufSk7XHJcbiJdLAogICJtYXBwaW5ncyI6ICI7QUFBMFMsU0FBUyxvQkFBb0I7QUFFdlUsT0FBTyxXQUFXO0FBRWxCLElBQU8sc0JBQVEsYUFBYTtBQUFBLEVBRTFCLFNBQVMsQ0FBQyxNQUFNLENBQUM7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQTtBQUFBO0FBQUE7QUFBQSxFQVdqQixTQUFTO0FBQUEsSUFDUCxRQUFRLENBQUMsT0FBTztBQUFBLEVBQ2xCO0FBQUEsRUFFQSxjQUFjO0FBQUEsSUFDWixTQUFTLENBQUMsc0JBQXNCO0FBQUEsRUFDbEM7QUFFRixDQUFDOyIsCiAgIm5hbWVzIjogW10KfQo=

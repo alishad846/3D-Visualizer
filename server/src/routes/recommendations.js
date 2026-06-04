@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const recommendController = require('../controllers/recommendController');
 
-router.get('/', (req, res) => {
-  res.json({ message: 'Welcome to ScanVista recommendations Router' });
-});
+router.get('/:productId', recommendController.getRecommendations);
 
 module.exports = router;

@@ -1,5 +1,21 @@
 const crypto = require('crypto');
 const db = require('../db');
+const recommendService = require('../services/recommendService');
+
+const PUBLIC_PRODUCT_FIELDS = `
+  id, name, tagline, description, category, brand, sku, thumbnail_url, model_url,
+  usdz_url, features, specs, price, currency, buy_url, qr_label, ai_summary,
+  is_published, slug
+`;
+
+const isUuid = (value) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+const normalizeProductIdList = (value, max = 4) => {
+  if (!value) return [];
+  const raw = Array.isArray(value) ? value : String(value).split(',');
+  return [...new Set(raw.map((id) => String(id).trim()).filter(Boolean))].slice(0, max);
+};
 
 exports.getProductById = async (req, res, next) => {
   const { productId } = req.params;
@@ -9,19 +25,18 @@ exports.getProductById = async (req, res, next) => {
   }
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId);
     let result;
 
-    if (isUuid) {
+    if (isUuid(productId)) {
       result = await db.query(
-        `SELECT id, name, tagline, description, category, brand, sku, thumbnail_url, model_url, usdz_url, features, specs, price, currency, buy_url, qr_label, ai_summary, is_published
+        `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
          WHERE id = $1`,
         [productId]
       );
     } else {
       result = await db.query(
-        `SELECT id, name, tagline, description, category, brand, sku, thumbnail_url, model_url, usdz_url, features, specs, price, currency, buy_url, qr_label, ai_summary, is_published
+        `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
          WHERE slug = $1 AND is_published = true`,
         [productId]
@@ -33,6 +48,54 @@ exports.getProductById = async (req, res, next) => {
     }
 
     return res.json(result.rows[0]);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getRecommendedProducts = async (req, res, next) => {
+  const { productId } = req.params;
+  const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 12);
+
+  if (!productId) {
+    return res.status(400).json({ error: 'Product ID or slug is required' });
+  }
+
+  try {
+    const result = await recommendService.getSimilarProducts(productId, limit);
+    if (!result.productId) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    return res.json({
+      products: result.products,
+      recommendationSource: result.recommendationSource,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getProductsForComparison = async (req, res, next) => {
+  const ids = normalizeProductIdList(req.query.ids, 4).filter(isUuid);
+
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'At least one valid product ID is required' });
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT ${PUBLIC_PRODUCT_FIELDS}
+       FROM products
+       WHERE id = ANY($1::uuid[])
+       AND is_published = true`,
+      [ids]
+    );
+
+    const byId = new Map(result.rows.map((row) => [String(row.id), row]));
+    const products = ids.map((id) => byId.get(id)).filter(Boolean);
+
+    return res.json({ products });
   } catch (error) {
     next(error);
   }
@@ -104,11 +167,10 @@ exports.logScan = async (req, res, next) => {
   }
 
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productId);
     let resolvedProductId = productId;
 
     // If slug is provided instead of ID, resolve ID
-    if (!isUuid) {
+    if (!isUuid(productId)) {
       const slugRes = await db.query('SELECT id FROM products WHERE slug = $1', [productId]);
       if (slugRes.rowCount === 0) {
         return res.status(404).json({ error: 'Product not found' });

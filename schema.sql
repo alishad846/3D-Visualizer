@@ -1,5 +1,6 @@
 -- Required for uuid_generate_v4() defaults (Render PostgreSQL, local, etc.)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- USERS
 CREATE TABLE users (
@@ -93,9 +94,6 @@ CREATE TABLE qr_codes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX idx_qr_codes_token ON qr_codes(qr_token);
-CREATE INDEX idx_qr_codes_product_id ON qr_codes(product_id);
-
 -- PRODUCT EMBEDDINGS (Phase 2 — recommendation engine)
 CREATE TABLE product_embeddings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -121,13 +119,6 @@ CREATE TABLE qr_scans (
     voice_used BOOLEAN DEFAULT FALSE,
     referrer_type VARCHAR(20) DEFAULT 'qr_scan'
 );
-
-CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);
-CREATE INDEX idx_qr_scans_scanned_at ON qr_scans(scanned_at);
-CREATE INDEX idx_qr_scans_qr_code_id ON qr_scans(qr_code_id);
-CREATE INDEX idx_qr_scans_country_code ON qr_scans(country_code);
-CREATE INDEX idx_qr_scans_device_type ON qr_scans(device_type);
-CREATE INDEX idx_qr_scans_referrer_type ON qr_scans(referrer_type);
 
 -- USER INTERACTION HISTORY (Phase 3 — personalization)
 CREATE TABLE user_interactions (
@@ -161,6 +152,8 @@ CREATE TABLE comparison_sessions (
 CREATE INDEX idx_products_project_id ON products(project_id);
 CREATE INDEX idx_products_user_id ON products(user_id);
 CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_qr_codes_token ON qr_codes(qr_token);
+CREATE INDEX idx_qr_codes_product_id ON qr_codes(product_id);
 CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);
 CREATE INDEX idx_qr_scans_scanned_at ON qr_scans(scanned_at);
 CREATE INDEX idx_qr_scans_qr_code_id ON qr_scans(qr_code_id);
@@ -170,3 +163,9 @@ CREATE INDEX idx_qr_scans_referrer_type ON qr_scans(referrer_type);
 CREATE INDEX idx_user_interactions_user_id ON user_interactions(user_id);
 CREATE INDEX idx_user_interactions_product_id ON user_interactions(product_id);
 CREATE INDEX idx_products_usdz_url ON products(usdz_url) WHERE usdz_url IS NOT NULL;
+
+-- AI ASSISTANT and recommendation engine indexes
+CREATE INDEX idx_product_embeddings_vector ON product_embeddings USING hnsw (embedding vector_cosine_ops);
+CREATE INDEX idx_product_embeddings_product_id ON product_embeddings(product_id);
+CREATE INDEX idx_user_interactions_product_type ON user_interactions(product_id, interaction_type);
+CREATE INDEX idx_qr_scans_product_timestamp ON qr_scans(product_id, scanned_at DESC);

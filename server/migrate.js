@@ -3,6 +3,12 @@ const db = require('./src/db');
 async function runMigrations() {
   console.log('Starting database migrations...');
 
+  await db.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+  console.log('Created or verified uuid-ossp extension.');
+
+  await db.query('CREATE EXTENSION IF NOT EXISTS vector');
+  console.log('Created or verified vector extension.');
+
   // 1. Add slug column to products if not exists
   await db.query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS slug VARCHAR(255);
@@ -54,6 +60,26 @@ async function runMigrations() {
   // 5. Add indexes
   await db.query(`CREATE INDEX IF NOT EXISTS idx_qr_codes_token ON qr_codes(qr_token);`);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_qr_codes_product_id ON qr_codes(product_id);`);
+
+  // 6. Recommendation embeddings table + vector indexes
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS product_embeddings (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+      embedding VECTOR(1536),
+      model_version VARCHAR(50),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_product_embeddings_vector
+    ON product_embeddings USING hnsw (embedding vector_cosine_ops);
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_product_embeddings_product_id
+    ON product_embeddings(product_id);
+  `);
+
   console.log('Created or verified indexes.');
 
   console.log('Migrations completed successfully!');

@@ -26,6 +26,35 @@
   .glow-box {
     box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
   }
+
+  .ai-orbit-border {
+    position: relative;
+    background:
+      conic-gradient(
+        from var(--ai-orbit-angle, 0deg),
+        transparent 0deg,
+        transparent 52deg,
+        #00f0ff 78deg,
+        #7c3cff 112deg,
+        #ff4ecd 145deg,
+        #ffe66d 172deg,
+        transparent 205deg,
+        transparent 360deg
+      );
+    animation: ai-orbit-spin 4s linear infinite;
+  }
+}
+
+@property --ai-orbit-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes ai-orbit-spin {
+  to {
+    --ai-orbit-angle: 360deg;
+  }
 }
 
 /* Hidden scrollbar utility */

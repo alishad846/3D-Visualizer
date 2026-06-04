@@ -11,6 +11,8 @@ const projectRoutes = require('./routes/projects');
 const productRoutes = require('./routes/products');
 const viewerRoutes = require('./routes/viewer');
 const analyticsRoutes = require('./routes/analytics');
+const aiRoutes = require('./routes/ai');
+const recommendationRoutes = require('./routes/recommendations');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { rateLimiter } = require('./middleware/rateLimiter');
@@ -42,6 +44,8 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/viewer', viewerRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/recommendations', recommendationRoutes);
 
 app.use(errorHandler);
 

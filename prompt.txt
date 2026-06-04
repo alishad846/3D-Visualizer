@@ -1,0 +1,173 @@
+You have full access to this codebase. Before writing a single line of code, read and analyze every relevant file completely. Build a full picture of what already exists and what does not. Do not assume anything — verify by reading actual files.
+
+Step 1 — Mandatory analysis before any planning:
+Read every one of these files fully:
+Backend:
+
+schema.sql — in the project root. This is the single source of truth for the database schema. Read every table, every column, every index. All SQL queries you write must be derived from this file only. Do not assume any column exists without confirming it here first.
+server/src/routes/analytics.js — list every route defined
+server/src/controllers/analyticsController.js — list every function, confirm which project-scope functions already exist, what SQL they already run, and whether they are correct against schema.sql
+server/src/middleware/auth.js — confirm how JWT auth works and what req.user contains
+server/src/db/index.js — confirm the exact pg pool query method signature used throughout the codebase
+
+Frontend:
+
+client/src/pages/dashboard/Analytics.jsx — understand full structure, how it passes props to cards, how mode, projectId, productId, refreshTick are used
+client/src/components/analytics/TrendCard.jsx — confirm whether it accepts mode prop and handles "project" scope
+client/src/components/analytics/GeoCard.jsx — same check
+client/src/components/analytics/SourceCard.jsx — same check
+client/src/components/analytics/RealtimeCard.jsx — same check
+client/src/api/analytics.js — list every function, confirm which project-scope API functions exist and what endpoints they call
+client/src/pages/dashboard/DashboardLayout.jsx — understand sidebar structure, how project and product switchers are rendered, whether conditional hide logic exists
+client/src/App.jsx — confirm existing analytics routes, confirm whether /dashboard/analytics/project already exists
+client/src/utils/timeAgo.js — confirm if it exists and what it exports
+client/src/store/workspaceStore.js — confirm what activeProject exposes
+
+After reading everything, explicitly answer each of these before proceeding:
+
+Which project-scope backend functions already exist and are correct? Which are missing or wrong?
+Which frontend card components already support mode="project"? Which do not?
+Do all project-scope API functions exist in analytics.js? List any missing ones.
+Does /dashboard/analytics/project route already exist in App.jsx?
+Does the sidebar Project Analysis item already point to /dashboard/analytics/project and is it enabled?
+Does the navbar have any conditional logic to hide the product switcher on certain pages?
+Does timeAgo utility exist?
+
+Present all findings clearly. Then present the complete implementation plan. Wait for approval before writing any code.
+
+What this prompt implements: Project Analysis page — backend and frontend.
+
+The database schema is in schema.sql at the project root. Read it fully. Every SQL query you write must reference only columns and tables that exist in that file. If you are unsure whether a column exists, check schema.sql before writing the query. Do not write any SQL from memory or assumption.
+
+Security rule — applies to every backend endpoint:
+Every query must verify project ownership. The authenticated user must own the project. Embed the ownership check directly in the SQL using a JOIN or WHERE clause — never a separate round trip. If the ownership check fails return 403. Never return data for a project the user does not own. The user ID comes from req.user.userId — confirm the exact field name by reading auth.js first.
+
+Backend — six endpoints needed for this page:
+If any already exist in analyticsController.js with correct SQL derived from schema.sql, do not rewrite them. Only implement what is missing or incorrect. For each endpoint, read schema.sql to confirm the columns exist before writing the query.
+The six endpoints are:
+
+GET /api/analytics/project/:projectId/overview — five stat card metrics: total scans all-time, unique visitors all-time, avg session duration, AR rate for last 28 days. Ownership verified via JOIN to projects table. Returns: { totalScans, uniqueVisitors, avgSessionSeconds, arRate }.
+GET /api/analytics/project/:projectId/realtime — count of distinct ip_hash values where scanned_at is within last 30 minutes, across all products in the project. Returns only { activeNow } — no per-minute sparkline, no country breakdown. Those are product-level details not needed here.
+GET /api/analytics/project/:projectId/trend?range=7d|28d|90d — daily scan counts grouped by date for current period and previous period of equal length. Current period: last N days. Previous period: the N days immediately before that. Returns { current: [{day, scans, uniqueVisitors, avgSession, arRate}], previous: [{day, scans}] }. Default range if missing or invalid: 28d.
+GET /api/analytics/project/:projectId/geo?range=7d|28d|90d — scan counts grouped by country_code across all products in project, filtered by range, ordered by scans descending, limit 50. Returns { countries: [{countryCode, scans, percentage}] }. Percentage is each country's share of total. Use window function for percentage calculation.
+GET /api/analytics/project/:projectId/sources?range=7d|28d|90d — scan counts grouped by referrer_type for current period and previous period. Calculate trend percentage in controller. Returns { sources: [{referrerType, scans, percentage, trend}] }.
+GET /api/analytics/project/:projectId/products?range=7d|28d|90d&sort=scans|unique_visitors|avg_session|ar_rate|last_scanned — one row per product in the project with aggregated stats. Include a second query for 7-day sparkline data. Merge sparkline into product rows in the controller. Mark products as dead if they have zero scans in the last 30 days. Use a whitelist map for the sort column — never interpolate user input directly into SQL. Returns { products: [{id, name, thumbnailUrl, slug, totalScans, uniqueVisitors, avgSessionSeconds, arRate, lastScanned, isDead, sparkline}] }.
+
+For every endpoint: wrap in try/catch, log errors with [Analytics] prefix, return 500 with { error: 'Analytics query failed' } on failure. Never expose raw SQL errors or stack traces to the client.
+All six routes must go through the existing auth middleware. Add them to server/src/routes/analytics.js following the exact same pattern already used in that file.
+
+Frontend — what to build:
+Page: client/src/pages/dashboard/ProjectAnalytics.jsx
+Reads activeProject from workspace store. If no project is selected, show a centered empty state with muted text: "Select a project from the top bar to view analytics."
+Page heading area:
+
+Title: "Project Analytics"
+Subtitle: active project name in muted color
+Top right: "Last updated: just now" timestamp + refresh icon button. Clicking refresh increments a refreshTick integer state. Every card receives refreshTick as a prop and re-fetches when it changes. Follow the exact same refreshTick pattern already used in the existing product analytics page.
+
+Layout — four rows:
+Row 1: Five equal stat cards — ProjectStatsRow component
+Row 2: Trend chart — reuse TrendCard with mode="project" and projectId
+Row 3: Product breakdown table — ProductBreakdownTable component, full width
+Row 4: Two cards side by side — reuse GeoCard (60%) and SourceCard (40%) with mode="project" and projectId
+On tablet: Row 1 wraps 3+2. Row 4 stacks full width.
+On mobile: single column. Row 1 is 2-per-row grid. Row 4 stacks. Country map hidden on mobile, table only.
+Colors and styling match product analytics exactly:
+
+Card background: #0b1622
+Card border: rgba(255,255,255,0.05)
+Card border-radius: rounded-xl
+Accent: #00F0FF
+Positive: #10b981
+Warning/dead: #f59e0b
+Text primary: #FFFFFF
+Text muted: #A0A0A0
+Section labels: text-[10px] uppercase tracking-widest text-[#A0A0A0] font-semibold
+
+
+New component: client/src/components/analytics/ProjectStatsRow.jsx
+Fetches from two endpoints simultaneously using Promise.all:
+
+/api/analytics/project/:projectId/overview → totalScans, uniqueVisitors, avgSessionSeconds, arRate
+/api/analytics/project/:projectId/realtime → activeNow
+
+Re-fetches when projectId or refreshTick changes.
+Renders five equal-width cards in a single row. Each card: bg-[#0b1622] border border-white/5 rounded-xl p-4.
+Card 1 — Total Scans: label "TOTAL SCANS", large formatted number (28400 → "28.4k"), no filter.
+Card 2 — Unique Visitors: label "UNIQUE VISITORS", large formatted number, no filter.
+Card 3 — Active Now: label "ACTIVE NOW", count with a small pulsing green dot (#10b981) CSS pulse animation next to it, subtitle "in last 30 min" in muted text.
+Card 4 — AR Adoption: label "AR ADOPTION", percentage with % suffix in #00F0FF.
+Card 5 — Avg Session: label "AVG SESSION", formatted as "42s" if under 60 seconds, "2m 10s" if 130 seconds, etc.
+Number formatter for large numbers: implement inline — under 1000 show raw number, 1000-999999 show "1.2k", 1000000+ show "1.2M".
+Loading state: five shimmer skeleton cards using the same shimmer CSS already in the codebase.
+Error state: five cards each showing "—" as value, small error note below the row.
+Empty state: if activeNow is zero, show "0" — not an error.
+
+New component: client/src/components/analytics/ProductBreakdownTable.jsx
+Fetches from /api/analytics/project/:projectId/products?range=28d&sort=scans. Has its own local range state and sort state. Re-fetches when either changes or when refreshTick or projectId changes.
+Card wrapper: bg-[#0b1622] border border-white/5 rounded-xl p-5
+Card title: "Product Performance" — text-[11px] uppercase tracking-widest text-[#A0A0A0] font-semibold
+Subtitle: "All products in this project" — text-xs text-[#A0A0A0] mt-0.5 mb-4
+Table columns — in this exact order:
+
+Product: 32×32 thumbnail (rounded-lg object-cover) + product name. If thumbnailUrl is null: placeholder div bg-[rgba(0,240,255,0.1)] rounded-lg with ⬡ centered in #00F0FF.
+Scans: total scan count, right-aligned, text-white
+% of Project: calculated as (product.totalScans / sum of all totalScans) * 100. Show percentage text + a thin 3px height cyan progress bar below it, width proportional to percentage, background rgba(255,255,255,0.05), fill #00F0FF at 60% opacity. Handle division by zero — show "0%" if total is zero.
+Unique Visitors: right-aligned
+AR%: percentage with %. Color #00F0FF if above 20%, #A0A0A0 otherwise.
+Last Scanned: relative time using timeAgo utility. If lastScanned is null: show "Never".
+7D Trend: inline SVG sparkline. 7 bars, color #00F0FF, total width 56px, height 24px. If sparkline array is empty or all zeros: render a flat horizontal line in rgba(255,255,255,0.1).
+
+Dead product row (isDead: true): entire row opacity-50, small 4px amber circle #f59e0b rendered before the product name thumbnail.
+Column headers are clickable. Clicking fires a new fetch with the corresponding sort key. Valid sort keys: scans, unique_visitors, avg_session, ar_rate, last_scanned. Active sort column header shows ▼ in #00F0FF. Use a sort key map — never pass raw column names to the API.
+Bottom left of card: range dropdown 7D / 28D / 90D. Styled: bg-[#071018] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white. Nothing on the bottom right.
+Responsive:
+
+Tablet: hide 7D Trend column
+Mobile: show only Product + Scans columns. Each row is tappable — expands inline sub-row showing % of Project, AR%, Last Scanned in a muted smaller text row below
+
+Loading: shimmer over table body, column headers remain visible.
+Error: "Failed to load product data. Try refreshing." centered in muted red text.
+Empty: "No products found for this project." centered in muted text.
+
+Reusing existing cards:
+For TrendCard, GeoCard, SourceCard — after reading those files in Step 1, if they already support mode="project" pass the correct props and do not modify them. If any card does not support mode="project", report the gap clearly in the plan and ask before modifying. Do not modify any existing card component without explicit approval.
+
+Routing — client/src/App.jsx:
+If /dashboard/analytics/project does not already exist, add inside ProtectedRoute and DashboardLayout:
+jsx<Route path="analytics/project" element={<ProjectAnalytics />} />
+Import ProjectAnalytics from ./pages/dashboard/ProjectAnalytics. Do not change any other route.
+
+Sidebar — client/src/pages/dashboard/DashboardLayout.jsx:
+Find the Project Analysis sidebar item. If it currently has a "Soon" badge and is disabled, make these changes only:
+
+Remove the "Soon" badge
+Enable the link, point it to /dashboard/analytics/project
+Active styling when current route is /dashboard/analytics/project
+
+Product switcher visibility: on the /dashboard/analytics/project page the product switcher must be hidden — only the project switcher is visible. Check how the navbar currently renders the product switcher. Use useLocation() from react-router-dom to detect the current route. If the route is /dashboard/analytics/project, do not render the product switcher. Apply this change only in the location where the product switcher is rendered — do not restructure the navbar or sidebar.
+Do not change any other sidebar item, any other navbar element, or any other layout property.
+
+Files to create:
+
+client/src/pages/dashboard/ProjectAnalytics.jsx
+client/src/components/analytics/ProjectStatsRow.jsx
+client/src/components/analytics/ProductBreakdownTable.jsx
+
+Files to modify only if needed after Step 1 analysis confirms they are incomplete:
+
+server/src/controllers/analyticsController.js — add missing project-scope functions only
+server/src/routes/analytics.js — add missing project-scope routes only
+client/src/api/analytics.js — add missing project-scope API functions only
+client/src/App.jsx — add route only if missing
+client/src/pages/dashboard/DashboardLayout.jsx — sidebar activation + product switcher hide only
+
+Files to never touch:
+
+schema.sql
+Any existing analytics card component
+client/src/pages/dashboard/Analytics.jsx
+Any auth, product, viewer, or unrelated files
+
+
+Before writing any code: Complete Step 1 analysis, answer every question listed, present the full implementation plan file by file, and wait for explicit approval.

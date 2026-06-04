@@ -51,6 +51,8 @@ async function validateProjectOwnership(projectId, userId) {
   return result.rows.length > 0;
 }
 
+// ── PRODUCT ANALYTICS ENDPOINTS ──
+
 exports.getProductOverview = async (req, res) => {
   const { productId } = req.params;
   const { userId } = req.user;
@@ -213,7 +215,7 @@ exports.getProductTrend = async (req, res) => {
        WHERE p.id = $1
        AND proj.user_id = $2
        GROUP BY day
-       HAVING day IS NOT NULL
+       HAVING DATE(qs.scanned_at) IS NOT NULL
        ORDER BY day ASC`,
       [productId, userId]
     );
@@ -230,7 +232,7 @@ exports.getProductTrend = async (req, res) => {
        WHERE p.id = $1
        AND proj.user_id = $2
        GROUP BY day
-       HAVING day IS NOT NULL
+       HAVING DATE(qs.scanned_at) IS NOT NULL
        ORDER BY day ASC`,
       [productId, userId]
     );
@@ -545,18 +547,16 @@ exports.getProductSessions = async (req, res) => {
   }
 };
 
+// ── PROJECT ANALYTICS ENDPOINTS ──
+
 exports.getProjectOverview = async (req, res) => {
   const { projectId } = req.params;
   const { userId } = req.user;
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
     const result = await db.query(
       `SELECT
+         proj.id AS project_id,
          COUNT(qs.id) AS total_scans,
          COUNT(DISTINCT qs.ip_hash) FILTER (WHERE qs.ip_hash IS NOT NULL) AS unique_visitors,
          ROUND(AVG(qs.session_duration_seconds) FILTER (
@@ -574,11 +574,16 @@ exports.getProjectOverview = async (req, res) => {
        LEFT JOIN products p ON p.project_id = proj.id
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
        WHERE proj.id = $1
-       AND proj.user_id = $2`,
+       AND proj.user_id = $2
+       GROUP BY proj.id`,
       [projectId, userId]
     );
 
-    const row = result.rows[0] || {};
+    if (!result.rows.length) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const row = result.rows[0];
     const totalScans = Number(row.total_scans || 0);
     const uniqueVisitors = Number(row.unique_visitors || 0);
     const avgSessionSeconds = row.avg_session_seconds !== null ? Number(row.avg_session_seconds) : 0;
@@ -598,68 +603,26 @@ exports.getProjectRealtime = async (req, res) => {
   const { userId } = req.user;
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
     const activeNowResult = await db.query(
       `SELECT
+         proj.id AS project_id,
          COUNT(DISTINCT qs.ip_hash) FILTER (WHERE qs.ip_hash IS NOT NULL) AS active_now
        FROM projects proj
        LEFT JOIN products p ON p.project_id = proj.id
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
          AND qs.scanned_at >= NOW() - INTERVAL '30 minutes'
        WHERE proj.id = $1
-       AND proj.user_id = $2`,
-      [projectId, userId]
-    );
-
-    const activeNow = Number(activeNowResult.rows[0]?.active_now || 0);
-
-    const perMinuteResult = await db.query(
-      `SELECT
-         date_trunc('minute', qs.scanned_at) AS minute,
-         COUNT(*) AS count
-       FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
-       INNER JOIN qr_scans qs ON qs.product_id = p.id
-       WHERE proj.id = $1
        AND proj.user_id = $2
-       AND qs.scanned_at >= NOW() - INTERVAL '30 minutes'
-       GROUP BY minute
-       ORDER BY minute ASC`,
+       GROUP BY proj.id`,
       [projectId, userId]
     );
 
-    const byCountryResult = await db.query(
-      `SELECT
-         qs.country_code,
-         COUNT(DISTINCT qs.ip_hash) AS active_count
-       FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
-       INNER JOIN qr_scans qs ON qs.product_id = p.id
-       WHERE proj.id = $1
-       AND proj.user_id = $2
-       AND qs.scanned_at >= NOW() - INTERVAL '30 minutes'
-       AND qs.country_code IS NOT NULL
-       GROUP BY qs.country_code
-       ORDER BY active_count DESC
-       LIMIT 5`,
-      [projectId, userId]
-    );
+    if (!activeNowResult.rows.length) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
-    const perMinute = perMinuteResult.rows.map((row) => ({
-      minute: toISO(row.minute),
-      count: Number(row.count || 0),
-    }));
-
-    const byCountry = byCountryResult.rows.map((row) => ({
-      countryCode: row.country_code,
-      activeCount: Number(row.active_count || 0),
-    }));
-
-    return res.json({ activeNow, perMinute, byCountry });
+    const activeNow = Number(activeNowResult.rows[0].active_now || 0);
+    return res.json({ activeNow });
   } catch (error) {
     console.error('[Analytics] getProjectRealtime error:', error.message);
     return res.status(500).json({ error: 'Analytics query failed' });
@@ -674,23 +637,19 @@ exports.getProjectTrend = async (req, res) => {
   const previousInterval = getInterval(days * 2);
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
     const currentResult = await db.query(
       `SELECT
+         proj.id AS project_id,
          DATE(qs.scanned_at) AS day,
-         COUNT(*) AS scans,
+         COUNT(qs.id) AS scans,
          COUNT(DISTINCT qs.ip_hash) AS unique_visitors,
          ROUND(AVG(qs.session_duration_seconds) FILTER (
            WHERE qs.session_duration_seconds IS NOT NULL
            AND qs.session_duration_seconds > 0
          )) AS avg_session,
          ROUND(
-           COUNT(*) FILTER (WHERE qs.ar_used = TRUE) * 100.0 /
-           NULLIF(COUNT(*), 0), 1
+           COUNT(qs.id) FILTER (WHERE qs.ar_used = TRUE) * 100.0 /
+           NULLIF(COUNT(qs.id), 0), 1
          ) AS ar_rate
        FROM projects proj
        LEFT JOIN products p ON p.project_id = proj.id
@@ -698,16 +657,20 @@ exports.getProjectTrend = async (req, res) => {
          AND qs.scanned_at >= NOW() - INTERVAL '${interval}'
        WHERE proj.id = $1
        AND proj.user_id = $2
-       GROUP BY day
-       HAVING day IS NOT NULL
+       GROUP BY proj.id, DATE(qs.scanned_at)
        ORDER BY day ASC`,
       [projectId, userId]
     );
 
+    if (currentResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
     const previousResult = await db.query(
       `SELECT
+         proj.id AS project_id,
          DATE(qs.scanned_at) AS day,
-         COUNT(*) AS scans
+         COUNT(qs.id) AS scans
        FROM projects proj
        LEFT JOIN products p ON p.project_id = proj.id
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
@@ -715,24 +678,27 @@ exports.getProjectTrend = async (req, res) => {
          AND qs.scanned_at < NOW() - INTERVAL '${interval}'
        WHERE proj.id = $1
        AND proj.user_id = $2
-       GROUP BY day
-       HAVING day IS NOT NULL
+       GROUP BY proj.id, DATE(qs.scanned_at)
        ORDER BY day ASC`,
       [projectId, userId]
     );
 
-    const current = currentResult.rows.map((row) => ({
-      day: row.day,
-      scans: Number(row.scans || 0),
-      uniqueVisitors: Number(row.unique_visitors || 0),
-      avgSession: row.avg_session !== null ? Number(row.avg_session) : 0,
-      arRate: row.ar_rate !== null ? Number(row.ar_rate) : 0,
-    }));
+    const current = currentResult.rows
+      .filter((row) => row.day !== null)
+      .map((row) => ({
+        day: row.day,
+        scans: Number(row.scans || 0),
+        uniqueVisitors: Number(row.unique_visitors || 0),
+        avgSession: row.avg_session !== null ? Number(row.avg_session) : 0,
+        arRate: row.ar_rate !== null ? Number(row.ar_rate) : 0,
+      }));
 
-    const previous = previousResult.rows.map((row) => ({
-      day: row.day,
-      scans: Number(row.scans || 0),
-    }));
+    const previous = previousResult.rows
+      .filter((row) => row.day !== null)
+      .map((row) => ({
+        day: row.day,
+        scans: Number(row.scans || 0),
+      }));
 
     return res.json({ current, previous });
   } catch (error) {
@@ -748,34 +714,43 @@ exports.getProjectGeo = async (req, res) => {
   const interval = getInterval(days);
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
     const result = await db.query(
       `SELECT
-         qs.country_code,
-         COUNT(*) AS scans,
-         ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER (), 0), 1) AS percentage
+         proj.id AS project_id,
+         geo.country_code,
+         COALESCE(geo.scans, 0) AS scans,
+         COALESCE(geo.percentage, 0) AS percentage
        FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
-       LEFT JOIN qr_scans qs ON qs.product_id = p.id
-         AND qs.scanned_at >= NOW() - INTERVAL '${interval}'
+       LEFT JOIN (
+         SELECT
+           p.project_id,
+           qs.country_code,
+           COUNT(*) AS scans,
+           ROUND(COUNT(*) * 100.0 / NULLIF(SUM(COUNT(*)) OVER (), 0), 1) AS percentage
+         FROM products p
+         INNER JOIN qr_scans qs ON qs.product_id = p.id
+         WHERE qs.scanned_at >= NOW() - INTERVAL '${interval}'
+         AND qs.country_code IS NOT NULL
+         GROUP BY p.project_id, qs.country_code
+       ) geo ON geo.project_id = proj.id
        WHERE proj.id = $1
        AND proj.user_id = $2
-       AND qs.country_code IS NOT NULL
-       GROUP BY qs.country_code
        ORDER BY scans DESC
        LIMIT 50`,
       [projectId, userId]
     );
 
-    const countries = result.rows.map((row) => ({
-      countryCode: row.country_code,
-      scans: Number(row.scans || 0),
-      percentage: row.percentage !== null ? Number(row.percentage) : 0,
-    }));
+    if (result.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const countries = result.rows
+      .filter((row) => row.country_code !== null)
+      .map((row) => ({
+        countryCode: row.country_code,
+        scans: Number(row.scans || 0),
+        percentage: row.percentage !== null ? Number(row.percentage) : 0,
+      }));
 
     return res.json({ countries });
   } catch (error) {
@@ -872,49 +847,64 @@ exports.getProjectSources = async (req, res) => {
   const prevInterval = getInterval(days * 2);
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
+    const currentResult = await db.query(
+      `SELECT
+         proj.id AS project_id,
+         src.referrer_type,
+         COALESCE(src.scans, 0) AS scans
+       FROM projects proj
+       LEFT JOIN (
+         SELECT
+           p.project_id,
+           qs.referrer_type,
+           COUNT(*) AS scans
+         FROM products p
+         INNER JOIN qr_scans qs ON qs.product_id = p.id
+         WHERE qs.scanned_at >= NOW() - INTERVAL '${interval}'
+         GROUP BY p.project_id, qs.referrer_type
+       ) src ON src.project_id = proj.id
+       WHERE proj.id = $1
+       AND proj.user_id = $2`,
+      [projectId, userId]
+    );
+
+    if (currentResult.rows.length === 0) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    const currentResult = await db.query(
-      `SELECT
-         qs.referrer_type,
-         COUNT(*) AS scans
-       FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
-       INNER JOIN qr_scans qs ON qs.product_id = p.id
-       WHERE proj.id = $1
-       AND proj.user_id = $2
-       AND qs.scanned_at >= NOW() - INTERVAL '${interval}'
-       GROUP BY qs.referrer_type
-       ORDER BY scans DESC`,
-      [projectId, userId]
-    );
-
     const previousResult = await db.query(
       `SELECT
-         qs.referrer_type,
-         COUNT(*) AS scans
+         proj.id AS project_id,
+         src.referrer_type,
+         COALESCE(src.scans, 0) AS scans
        FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
-       INNER JOIN qr_scans qs ON qs.product_id = p.id
+       LEFT JOIN (
+         SELECT
+           p.project_id,
+           qs.referrer_type,
+           COUNT(*) AS scans
+         FROM products p
+         INNER JOIN qr_scans qs ON qs.product_id = p.id
+         WHERE qs.scanned_at >= NOW() - INTERVAL '${prevInterval}'
+           AND qs.scanned_at < NOW() - INTERVAL '${interval}'
+         GROUP BY p.project_id, qs.referrer_type
+       ) src ON src.project_id = proj.id
        WHERE proj.id = $1
-       AND proj.user_id = $2
-       AND qs.scanned_at >= NOW() - INTERVAL '${prevInterval}'
-       AND qs.scanned_at < NOW() - INTERVAL '${interval}'
-       GROUP BY qs.referrer_type`,
+       AND proj.user_id = $2`,
       [projectId, userId]
     );
 
-    const previousMap = previousResult.rows.reduce((acc, row) => {
-      acc[row.referrer_type] = Number(row.scans || 0);
-      return acc;
-    }, {});
+    const previousMap = previousResult.rows
+      .filter((row) => row.referrer_type !== null)
+      .reduce((acc, row) => {
+        acc[row.referrer_type] = Number(row.scans || 0);
+        return acc;
+      }, {});
 
-    const totalCurrent = currentResult.rows.reduce((sum, row) => sum + Number(row.scans || 0), 0);
+    const validCurrentRows = currentResult.rows.filter((row) => row.referrer_type !== null);
+    const totalCurrent = validCurrentRows.reduce((sum, row) => sum + Number(row.scans || 0), 0);
 
-    const sources = currentResult.rows.map((row) => {
+    const sources = validCurrentRows.map((row) => {
       const currentScans = Number(row.scans || 0);
       const previousScans = previousMap[row.referrer_type] || 0;
       return {
@@ -941,13 +931,9 @@ exports.getProjectProducts = async (req, res) => {
   const orderBy = SORT_MAP[sortKey] || SORT_MAP.scans;
 
   try {
-    const validation = await validateProjectOwnership(projectId, userId);
-    if (!validation) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
     const productsResult = await db.query(
       `SELECT
+         proj.id AS project_id,
          p.id,
          p.name,
          p.thumbnail_url,
@@ -966,15 +952,22 @@ exports.getProjectProducts = async (req, res) => {
          COUNT(qs.id) FILTER (
            WHERE qs.scanned_at >= NOW() - INTERVAL '30 days'
          ) AS scans_last_30_days
-       FROM products p
+       FROM projects proj
+       LEFT JOIN products p ON p.project_id = proj.id
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
          AND qs.scanned_at >= NOW() - INTERVAL '${rangeInterval}'
-       WHERE p.project_id = $1
-       AND p.user_id = $2
-       GROUP BY p.id, p.name, p.thumbnail_url, p.slug
+       WHERE proj.id = $1
+       AND proj.user_id = $2
+       GROUP BY proj.id, p.id, p.name, p.thumbnail_url, p.slug
        ORDER BY ${orderBy} DESC`,
       [projectId, userId]
     );
+
+    if (productsResult.rows.length === 0) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const productRows = productsResult.rows.filter((row) => row.id !== null);
 
     const sparklineResult = await db.query(
       `SELECT
@@ -998,7 +991,7 @@ exports.getProjectProducts = async (req, res) => {
       return acc;
     }, {});
 
-    const products = productsResult.rows.map((row) => ({
+    const products = productRows.map((row) => ({
       id: row.id,
       name: row.name,
       thumbnailUrl: row.thumbnail_url,
