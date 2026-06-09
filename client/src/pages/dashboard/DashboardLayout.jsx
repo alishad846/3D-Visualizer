@@ -334,7 +334,7 @@ export default function DashboardLayout() {
                         }}
                         className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
                       >
-                        Single product
+                        Add Manually
                       </button>
                       <button
                         type="button"
@@ -344,7 +344,7 @@ export default function DashboardLayout() {
                         }}
                         className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
                       >
-                        Upload from CSV or Excel file
+                        Import from file (.csv or .xlsx)
                       </button>
                     </div>
                   )}
