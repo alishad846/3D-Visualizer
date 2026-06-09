@@ -1,0 +1,2 @@
+"NOTE: thumbnail_url - single storage URL only. If multiple provided, only the first was used. gallery_urls - comma-separated storage URLs, maximum 5. If more than 5 provided, only the first 5 are used. Both columns require pre-uploaded Supabase storage URLs. External URLs will be rejected."
+name,category,brand,sku,tagline,description,price,currency,buy_url,qr_label,usdz_url,thumbnail_url,gallery_urls

@@ -9,6 +9,31 @@ async function runMigrations() {
   await db.query('CREATE EXTENSION IF NOT EXISTS vector');
   console.log('Created or verified vector extension.');
 
+  // 0. Auth hardening fields + password reset token table
+  await db.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ NULL;
+  `);
+  console.log('Created or verified login lockout columns.');
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS reset_password_tokens (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token_hash VARCHAR(255) NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      used_at TIMESTAMPTZ NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_password_tokens_user_id ON reset_password_tokens(user_id);`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_password_tokens_token_hash ON reset_password_tokens(token_hash);`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_password_tokens_expires_at ON reset_password_tokens(expires_at);`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_password_tokens_used ON reset_password_tokens(used);`);
+  console.log('Created or verified password reset token table and indexes.');
+
   // 1. Add slug column to products if not exists
   await db.query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS slug VARCHAR(255);
@@ -79,6 +104,14 @@ async function runMigrations() {
     CREATE INDEX IF NOT EXISTS idx_product_embeddings_product_id
     ON product_embeddings(product_id);
   `);
+
+  // 7. Add AI content tracking fields if they do not exist
+  await db.query(`
+    ALTER TABLE products 
+      ADD COLUMN IF NOT EXISTS ai_generation_status VARCHAR(50) DEFAULT 'never_generated',
+      ADD COLUMN IF NOT EXISTS ai_generated_at TIMESTAMPTZ;
+  `);
+  console.log('Added or verified AI content tracking columns on products table.');
 
   console.log('Created or verified indexes.');
 

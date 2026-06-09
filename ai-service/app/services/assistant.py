@@ -79,8 +79,15 @@ class AssistantService:
         missing_fields = response_data.get("missingFields", [])
         suggested_actions = response_data.get("suggestedActions", [])
         
-        # Populate recommendation candidate IDs dynamically if Compare/Recommend
-        rec_ids = response_data.get("recommendedProductIds", [])
+        # Keep recommendations bound to products supplied by Node.js. This prevents
+        # mock or malformed LLM output from inventing IDs that the UI cannot open.
+        competitor_ids = {str(c.get("id")) for c in competitors if c.get("id")}
+        raw_rec_ids = response_data.get("recommendedProductIds", [])
+        rec_ids = [
+            str(rec_id)
+            for rec_id in raw_rec_ids
+            if str(rec_id) in competitor_ids
+        ]
         if not rec_ids and intent in {"compare", "recommend"} and competitors:
             rec_ids = [str(c["id"]) for c in competitors]
 
@@ -91,13 +98,10 @@ class AssistantService:
             
             # The AI attempted a sensitive action or user requested it - modify response text gracefully
             response_text = (
-                "### 🔐 Privileged Action Blocked\n\n"
-                "I detected a request for an administrative operation (e.g., product rollback, status modification, "
-                "or cache rebuild).\n\n"
-                "These high-impact control mutations are **heavily protected** and cannot be triggered through the public AI "
-                "voice assistant. They must first flow through secure, authenticated multi-person workflows via the "
-                "**ScanVista God Mode Admin System**.\n\n"
-                "Please log into the Admin Console if you possess appropriate `super_admin` permissions."
+                "Privileged action blocked. I detected a request for an administrative operation such as product rollback, status modification, or cache rebuild. "
+                "These high-impact control mutations are heavily protected and cannot be triggered through the public AI voice assistant. "
+                "They must instead flow through secure authenticated workflows via the ScanVista God Mode Admin System. "
+                "Please log into the Admin Console if you have appropriate super_admin permissions."
             )
             speech_payload = "Privileged action blocked. Administrative operations are restricted to the God Mode console."
             suggested_actions = ["Return to Dashboard", "View Security Specs"]

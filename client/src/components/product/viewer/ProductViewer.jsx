@@ -7,21 +7,51 @@ import ARLauncher from "../../ar/ARLauncher";
 import { fetchProductById, logProductScan } from "../../../api/viewer";
 import ProductAssistantOverlay from "./ProductAssistantOverlay";
 
+const DEMO_PRODUCT_ID = "demo";
+
 const defaultProduct = {
-    name: "Sony WH-1000XM5",
+    name: "",
     id: null,
     category: "",
     brand: "",
     tagline: "",
     description: "",
-    modelUrl: "/models/headphone.glb",
+    modelUrl: null,
     usdzUrl: null,
     buyUrl: null,
     price: null,
     currency: "",
     aiSummary: "",
+    aiUseCases: [],
     features: [],
     specifications: [],
+    rawSpecs: [],
+};
+
+const demoProduct = {
+    id: DEMO_PRODUCT_ID,
+    name: "Wireless Headphones",
+    category: "Audio",
+    brand: "ScanVista Demo",
+    tagline: "Explore the demo headphone experience",
+    description: "A local test product that loads the built-in headphone GLB from the codebase.",
+    modelUrl: "/models/headphone.glb",
+    usdzUrl: null,
+    buyUrl: null,
+    price: null,
+    currency: "USD",
+    aiSummary: "A quick preview product used for the demo route.",
+    aiUseCases: [],
+    features: [
+        "Sleek over-ear design",
+        "Spatial audio-ready",
+        "Responsive demo interaction"
+    ],
+    specifications: [
+        { key: "Driver", value: "40mm dynamic" },
+        { key: "Connectivity", value: "Bluetooth 5.3" },
+        { key: "Battery", value: "30 hours" },
+    ],
     rawSpecs: [],
 };
 
@@ -29,7 +59,7 @@ export default function ProductViewer() {
     const { productId } = useParams();
     const canvasRef = useRef(null);
 
-    const [product, setProduct] = useState(defaultProduct);
+    const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [zoomPercent, setZoomPercent] = useState(100);
@@ -57,9 +87,17 @@ export default function ProductViewer() {
     useEffect(() => {
         if (!productId) return;
 
+        if (productId === DEMO_PRODUCT_ID) {
+            setLoading(false);
+            setError(null);
+            setProduct(demoProduct);
+            return;
+        }
+
         let cancelled = false;
         setLoading(true);
         setError(null);
+        setProduct(null);
 
         fetchProductById(productId)
             .then((data) => {
@@ -83,12 +121,13 @@ export default function ProductViewer() {
                     brand: data.brand || "",
                     tagline: data.tagline || "",
                     description: data.description || "",
-                    modelUrl: data.model_url || defaultProduct.modelUrl,
+                    modelUrl: data.model_url || null,
                     usdzUrl: data.usdz_url || null,
                     buyUrl: data.buy_url || null,
                     price: data.price ?? null,
                     currency: data.currency || "",
                     aiSummary: data.ai_summary || "",
+                    aiUseCases: Array.isArray(data.ai_use_cases) ? data.ai_use_cases.filter(Boolean) : [],
                     features: normalizedFeatures,
                     specifications: normalizedSpecs,
                     rawSpecs: Array.isArray(data.specs) ? data.specs : [],
@@ -148,6 +187,7 @@ export default function ProductViewer() {
     const handleArLaunch = () => {
         if (!productId) return;
         setMode("ar");
+        if (productId === DEMO_PRODUCT_ID) return;
         logProductScan(productId, { ar_used: true }).catch((err) => {
             console.warn("[ProductViewer] AR analytics log failed:", err);
         });
@@ -227,7 +267,7 @@ export default function ProductViewer() {
         const baseHalf = Math.round(viewportH * (isCompact ? 0.50 : 0.44));
         const baseFull = Math.round(viewportH * (isCompact ? 0.88 : 0.82));
         const contentEl = sheetBodyInnerRef.current;
-        const stickyBuyBarHeight = product.buyUrl ? 88 : 0;
+        const stickyBuyBarHeight = product?.buyUrl ? 88 : 0;
         const contentHeight = contentEl ? contentEl.scrollHeight + 48 + stickyBuyBarHeight : baseFull; // content + handle/top gap + sticky CTA bar
 
         const cappedFull = Math.min(baseFull, Math.max(basePeek, contentHeight));
@@ -256,13 +296,37 @@ export default function ProductViewer() {
         const ro = new ResizeObserver(() => updateSheetHeights());
         ro.observe(el);
         return () => ro.disconnect();
-    }, [isImmersiveLayout, isCompact, product.buyUrl]);
+    }, [isImmersiveLayout, isCompact, product?.buyUrl]);
 
     useEffect(() => {
         if (sheetState === "full" && sheetSnapHeights.fullPx <= sheetSnapHeights.halfPx + 8) {
             setSheetState("half");
         }
     }, [sheetSnapHeights, sheetState]);
+
+    if (!product) {
+        if (loading) {
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-[#050816] text-slate-200 p-4">
+                    <div className="text-center max-w-md">
+                        <div className="mb-4 text-4xl">⏳</div>
+                        <h1 className="text-xl font-semibold text-white mb-2">Loading product...</h1>
+                        <p className="text-sm text-slate-400">Fetching the selected product details. Please wait a moment.</p>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-[#050816] text-slate-200 p-4">
+                <div className="text-center max-w-md">
+                    <div className="mb-4 text-4xl">⚠️</div>
+                    <h1 className="text-xl font-semibold text-white mb-2">Unable to load product</h1>
+                    <p className="text-sm text-slate-400">{error || 'Product data is unavailable.'}</p>
+                </div>
+            </div>
+        );
+    }
 
     // COMPACT + ADAPTIVE immersive layout: full-screen 3D canvas with bottom sheet overlays
     if (isImmersiveLayout) {
@@ -441,6 +505,37 @@ export default function ProductViewer() {
                                             </div>
                                         </div>
                                     ) : null}
+
+                                    {/* AI Overview */}
+                                    {product.aiSummary ? (
+                                        <div className="mb-4 rounded-xl border border-cyan-400/15 bg-gradient-to-br from-cyan-950/40 to-slate-900/60 p-3.5">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-cyan-400 text-sm">✦</span>
+                                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-400">AI Overview</h3>
+                                            </div>
+                                            <p className={`${isCompact ? "text-[12px]" : "text-[13px]"} text-slate-300 leading-relaxed`}>
+                                                {product.aiSummary}
+                                            </p>
+                                        </div>
+                                    ) : null}
+
+                                    {/* AI Use Cases */}
+                                    {Array.isArray(product.aiUseCases) && product.aiUseCases.length > 0 ? (
+                                        <div className="mb-4 rounded-xl border border-violet-500/15 bg-gradient-to-br from-violet-950/35 to-slate-900/60 p-3.5">
+                                            <div className="flex items-center gap-2 mb-2.5">
+                                                <span className="text-violet-400 text-sm">◆</span>
+                                                <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-400">Recommended Use Cases</h3>
+                                            </div>
+                                            <ul className="space-y-1.5">
+                                                {product.aiUseCases.map((uc, index) => (
+                                                    <li key={index} className={`flex items-start gap-2 ${isCompact ? "text-[12px]" : "text-[13px]"} text-slate-300`}>
+                                                        <span className="text-violet-400 mt-0.5 text-[10px] shrink-0">▸</span>
+                                                        <span>{uc}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -593,6 +688,37 @@ export default function ProductViewer() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    ) : null}
+
+                    {/* AI Overview */}
+                    {product.aiSummary ? (
+                        <div className="mb-6 rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/50 to-slate-900/70 p-5 shadow-[0_0_20px_rgba(0,240,255,0.05)]">
+                            <div className="flex items-center gap-2.5 mb-3">
+                                <span className="text-cyan-400">✦</span>
+                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400">AI Overview</h3>
+                            </div>
+                            <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">
+                                {product.aiSummary}
+                            </p>
+                        </div>
+                    ) : null}
+
+                    {/* AI Use Cases */}
+                    {Array.isArray(product.aiUseCases) && product.aiUseCases.length > 0 ? (
+                        <div className="mb-8 rounded-2xl border border-violet-500/20 bg-gradient-to-br from-violet-950/40 to-slate-900/70 p-5 shadow-[0_0_20px_rgba(139,92,246,0.05)]">
+                            <div className="flex items-center gap-2.5 mb-3">
+                                <span className="text-violet-400">◆</span>
+                                <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-400">Recommended Use Cases</h3>
+                            </div>
+                            <ul className="space-y-2">
+                                {product.aiUseCases.map((uc, index) => (
+                                    <li key={index} className="flex items-start gap-2.5 text-sm text-slate-300">
+                                        <span className="text-violet-400 mt-0.5 text-xs shrink-0">▸</span>
+                                        <span>{uc}</span>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     ) : null}
 

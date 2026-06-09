@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   GripVertical,
-  Mic,
   Plus,
   ShoppingCart,
   Trash2,
@@ -20,6 +19,7 @@ import {
   fetchRecommendedProducts,
 } from "../../api/viewer";
 import ProductCanvas from "../../components/product/viewer/canvas/ProductCanvas";
+import ProductAssistantOverlay from "../../components/product/viewer/ProductAssistantOverlay";
 
 const MAX_PRODUCTS = 4;
 const MIN_PRODUCTS = 2;
@@ -47,6 +47,22 @@ function productModelUrl(product) {
 
 function productThumbnail(product) {
   return product?.thumbnail_url || product?.thumbnailUrl || "";
+}
+
+function toAssistantProduct(product) {
+  if (!product) return null;
+  return {
+    id: product.id,
+    name: product.name || "",
+    category: product.category || "",
+    brand: product.brand || "",
+    tagline: product.tagline || "",
+    description: product.description || "",
+    price: product.price ?? null,
+    currency: product.currency || "",
+    features: Array.isArray(product.features) ? product.features : [],
+    specifications: normalizeSpecs(product.specs),
+  };
 }
 
 function ProductMiniView({ product }) {
@@ -222,6 +238,12 @@ export default function CompareProducts() {
   const [error, setError] = useState("");
   const [dragIndex, setDragIndex] = useState(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantSessionId] = useState(() => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `compare-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -371,7 +393,7 @@ export default function CompareProducts() {
 
   const canAddMore = selectedIds.length < MAX_PRODUCTS;
   const hasMinimum = selectedIds.length >= MIN_PRODUCTS;
-  const currentProduct = selectedProducts[0];
+  const currentProduct = toAssistantProduct(selectedProducts[0]);
 
   return (
     <div className="min-h-screen bg-[#05070d] text-white">
@@ -558,46 +580,33 @@ export default function CompareProducts() {
       </main>
 
       {assistantOpen ? (
-        <div className="fixed inset-0 z-[70] bg-black/55 p-4 backdrop-blur-sm">
-          <div className="ml-auto flex h-full max-w-md flex-col rounded-lg border border-white/10 bg-[#07111f] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-md bg-cyan-300 text-slate-950">
-                  <Mic size={18} />
-                </div>
-                <div>
+        <div className="fixed inset-0 z-[70] flex justify-end bg-black/45 p-2 sm:p-4 backdrop-blur-sm">
+          <div className="relative h-full w-full max-w-[420px]">
+            {currentProduct ? (
+              <ProductAssistantOverlay
+                open={assistantOpen}
+                onClose={() => setAssistantOpen(false)}
+                product={currentProduct}
+                sessionId={assistantSessionId}
+              />
+            ) : (
+              <div className="flex h-full flex-col rounded-lg border border-white/10 bg-[#07111f] p-4 text-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <h2 className="text-base font-semibold">AI Assistant</h2>
-                  <p className="text-xs text-slate-400">
-                    Ask about {currentProduct?.name || "this comparison"}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setAssistantOpen(false)}
+                    className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-slate-300 transition hover:bg-white/10"
+                    aria-label="Close AI assistant"
+                  >
+                    <X size={17} />
+                  </button>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAssistantOpen(false)}
-                className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-slate-300 transition hover:bg-white/10"
-                aria-label="Close AI assistant"
-              >
-                <X size={17} />
-              </button>
-            </div>
-
-            <div className="flex flex-1 flex-col justify-between gap-4 p-4">
-              <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-sm font-semibold text-white">Comparison-aware assistant</p>
-                <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                  This panel is reserved for comparing specs, asking buy-decision questions,
-                  and opening AI recommendations from the public product viewer.
+                <p className="mt-4 text-sm leading-relaxed text-slate-400">
+                  Add a product first, then ask the assistant about it.
                 </p>
               </div>
-              <button
-                type="button"
-                className="flex w-full items-center justify-center gap-2 rounded-md bg-cyan-300 px-4 py-3 font-bold text-slate-950"
-              >
-                <Mic size={18} />
-                Start Voice Query
-              </button>
-            </div>
+            )}
           </div>
         </div>
       ) : null}

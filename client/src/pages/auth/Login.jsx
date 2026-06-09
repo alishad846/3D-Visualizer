@@ -10,8 +10,6 @@ export default function Login() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [loading, setLoading] = useState(false);
-  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -29,15 +27,6 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResetPassword = (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setResetSent(true);
-    }, 1500);
   };
 
   return (
@@ -95,110 +84,58 @@ export default function Login() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="w-full max-w-sm"
         >
-          {forgotPasswordMode ? (
-            <>
-              <h2 className="text-3xl font-display font-medium mb-4 text-center tracking-tight">Reset Password</h2>
-              <p className="text-[#A0A0A0] text-center text-sm mb-8">
-                {resetSent 
-                  ? "Check your email for a link to reset your password. If it doesn't appear within a few minutes, check your spam folder."
-                  : "Enter your email address and we'll send you a link to reset your password."}
-              </p>
+          <h2 className="text-3xl font-display font-medium mb-10 text-center tracking-tight">Welcome Back</h2>
+              
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-5">
+              <div>
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email Address" 
+                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                />
+              </div>
+              
+              <div>
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password" 
+                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                />
+              </div>
+            </div>
 
-              {!resetSent ? (
-                <form onSubmit={handleResetPassword} className="space-y-6">
-                  <div>
-                    <input 
-                      type="email" 
-                      required
-                      placeholder="Email Address" 
-                      className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                    />
-                  </div>
-                  
-                  <button 
-                    type="submit" 
-                    disabled={loading}
-                    className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {loading ? (
-                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <span className="text-[15px]">Send Reset Link</span>
-                    )}
-                  </button>
-                </form>
+            <div className="flex justify-end text-xs">
+              <Link to="/forgot-password" className="text-[#A0A0A0] hover:text-white transition-colors">Forgot password?</Link>
+            </div>
+
+            {error && (
+              <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
               ) : (
-                <button 
-                  onClick={() => { setForgotPasswordMode(false); setResetSent(false); }}
-                  className="w-full bg-[#333] text-white font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#444] transition-all mt-4"
-                >
-                  Return to Login
-                </button>
+                <span className="text-[15px]">Sign In</span>
               )}
-              
-              {!resetSent && (
-                <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
-                  Remember your password?{' '}
-                  <button onClick={() => setForgotPasswordMode(false)} className="text-white hover:text-[#00F0FF] transition-colors font-medium cursor-pointer">Log In</button>
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl font-display font-medium mb-10 text-center tracking-tight">Welcome Back</h2>
-              
-              <form onSubmit={handleLogin} className="space-y-6">
-                <div className="space-y-5">
-                  <div>
-                    <input 
-                      type="email" 
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Email Address" 
-                      className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                    />
-                  </div>
-                  
-                  <div>
-                    <input 
-                      type="password" 
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password" 
-                      className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end text-xs">
-                  <button type="button" onClick={() => setForgotPasswordMode(true)} className="text-[#A0A0A0] hover:text-white transition-colors cursor-pointer">Forgot password?</button>
-                </div>
-
-                {error && (
-                  <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
-                )}
-
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span className="text-[15px]">Sign In</span>
-                  )}
-                </button>
-              </form>
-              
-              <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-white hover:text-[#00F0FF] transition-colors font-medium">Register</Link>
-              </p>
-            </>
-          )}
+            </button>
+          </form>
+          
+          <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-white hover:text-[#00F0FF] transition-colors font-medium">Register</Link>
+          </p>
         </motion.div>
       </div>
     </div>

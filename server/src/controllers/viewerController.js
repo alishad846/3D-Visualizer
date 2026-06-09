@@ -4,8 +4,8 @@ const recommendService = require('../services/recommendService');
 
 const PUBLIC_PRODUCT_FIELDS = `
   id, name, tagline, description, category, brand, sku, thumbnail_url, model_url,
-  usdz_url, features, specs, price, currency, buy_url, qr_label, ai_summary,
-  is_published, slug
+  usdz_url, features, specs, price, currency, buy_url, qr_label, ai_summary, ai_use_cases,
+  ai_generation_status, ai_generated_at, is_published, slug
 `;
 
 const isUuid = (value) =>
@@ -31,7 +31,7 @@ exports.getProductById = async (req, res, next) => {
       result = await db.query(
         `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
-         WHERE id = $1`,
+         WHERE id = $1 AND is_published = true`,
         [productId]
       );
     } else {
@@ -113,7 +113,9 @@ exports.getQrCodeByToken = async (req, res, next) => {
       `SELECT q.*, p.slug, p.is_published 
        FROM qr_codes q
        JOIN products p ON q.product_id = p.id
-       WHERE q.qr_token = $1 AND q.is_active = true`,
+       WHERE q.qr_token = $1
+       AND q.is_active = true
+       AND p.is_published = true`,
       [token]
     );
 
@@ -171,11 +173,22 @@ exports.logScan = async (req, res, next) => {
 
     // If slug is provided instead of ID, resolve ID
     if (!isUuid(productId)) {
-      const slugRes = await db.query('SELECT id FROM products WHERE slug = $1', [productId]);
+      const slugRes = await db.query(
+        'SELECT id FROM products WHERE slug = $1 AND is_published = true',
+        [productId]
+      );
       if (slugRes.rowCount === 0) {
         return res.status(404).json({ error: 'Product not found' });
       }
       resolvedProductId = slugRes.rows[0].id;
+    } else {
+      const productRes = await db.query(
+        'SELECT id FROM products WHERE id = $1 AND is_published = true',
+        [productId]
+      );
+      if (productRes.rowCount === 0) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
     }
 
     const userAgent = req.headers['user-agent'] || '';

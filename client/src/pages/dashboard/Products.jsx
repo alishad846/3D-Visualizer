@@ -4,7 +4,8 @@ import { useWorkspaceStore } from '../../store/workspaceStore';
 import {
   Search, Grid, List, Plus, Box,
   Edit3, ExternalLink, ChevronLeft, ChevronRight,
-  Package, FolderOpen, CheckCircle2, Clock
+  Package, FolderOpen, CheckCircle2, Clock, UploadCloud,
+  ChevronDown
 } from 'lucide-react';
 
 const PAGE_SIZE = 10;
@@ -38,6 +39,7 @@ export default function Products() {
   const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState('grid');
   const [page, setPage] = useState(1);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
 
   // Derive unique categories from real data only
   const categories = useMemo(() => {
@@ -90,6 +92,11 @@ export default function Products() {
 
     return result;
   }, [products, searchQuery, categoryFilter, statusFilter, modelFilter, sortBy]);
+
+  const hasIncompleteModelDrafts = useMemo(
+    () => products.some((p) => !p.is_published && !p.model_url),
+    [products]
+  );
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -145,13 +152,50 @@ export default function Products() {
             {products.length} product{products.length !== 1 ? 's' : ''} in this project
           </p>
         </div>
-        <button
-          onClick={() => navigate('/add-product')}
-          className="shrink-0 bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-2.5 px-5 rounded-xl flex items-center gap-2 text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:shadow-[0_0_25px_rgba(0,240,255,0.35)]"
-        >
-          <Plus className="w-4 h-4 stroke-[3px]" />
-          New Product
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <button
+              onClick={() => setCreateMenuOpen((prev) => !prev)}
+              className="shrink-0 bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-2.5 px-5 rounded-xl flex items-center gap-2 text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)] hover:shadow-[0_0_25px_rgba(0,240,255,0.35)]"
+            >
+              <Plus className="w-4 h-4 stroke-[3px]" />
+              Create Product
+              <ChevronDown className={`w-4 h-4 transition-transform ${createMenuOpen ? 'rotate-180' : 'rotate-0'}`} />
+            </button>
+            {createMenuOpen && (
+              <div className="absolute right-0 mt-2 w-[220px] bg-[#0b101f] border border-[#1d2e4a] rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.25)] overflow-hidden z-20">
+                <button
+                  onClick={() => { navigate('/add-product'); setCreateMenuOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-100 hover:bg-[#11192b] transition-all"
+                >
+                  Single product
+                </button>
+                <button
+                  onClick={() => { navigate('/bulk-import'); setCreateMenuOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-xs uppercase tracking-wider font-semibold text-slate-100 hover:bg-[#11192b] transition-all"
+                >
+                  Upload from CSV or Excel file
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => navigate('/bulk-import')}
+            className="shrink-0 bg-[#11192b] hover:bg-[#1e2e4f] text-slate-200 font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 text-xs uppercase tracking-wider transition-all border border-[#1d2d4a]"
+          >
+            <UploadCloud className="w-4 h-4" />
+            Bulk Import
+          </button>
+          {hasIncompleteModelDrafts && (
+            <button
+              onClick={() => navigate('/dashboard/incomplete-models')}
+              className="shrink-0 bg-[#11192b] hover:bg-[#1e2e4f] text-slate-200 font-semibold py-2.5 px-5 rounded-xl flex items-center gap-2 text-xs uppercase tracking-wider transition-all border border-[#1d2d4a]"
+            >
+              <UploadCloud className="w-4 h-4" />
+              Fix Missing Models
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Real Stats Row */}
@@ -265,12 +309,20 @@ export default function Products() {
           <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed mb-6">
             This project doesn't have any products. Create your first one to get started.
           </p>
-          <button
-            onClick={() => navigate('/add-product')}
-            className="bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)]"
-          >
-            Create First Product
-          </button>
+          <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <button
+              onClick={() => navigate('/add-product')}
+              className="bg-[#00F0FF] hover:bg-[#00D8E6] text-[#050b14] font-black py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,240,255,0.2)]"
+            >
+              Create Single Product
+            </button>
+            <button
+              onClick={() => navigate('/bulk-import')}
+              className="bg-[#11192b] hover:bg-[#1e2e4f] text-slate-200 font-semibold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition-all border border-[#1d2e4a]"
+            >
+              Upload from CSV or Excel file
+            </button>
+          </div>
         </div>
       )}
 

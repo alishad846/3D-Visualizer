@@ -4,8 +4,16 @@ const fs = require('fs');
 const path = require('path');
 
 async function createAndInit() {
+  const rootConnectionString = process.env.ROOT_DATABASE_URL;
+  const appConnectionString = process.env.DATABASE_URL;
+
+  if (!rootConnectionString || !appConnectionString) {
+    console.error('ROOT_DATABASE_URL and DATABASE_URL must be set before running init-db.');
+    process.exit(1);
+  }
+
   const rootPool = new Pool({
-    connectionString: 'postgresql://postgres:root@localhost:5432/postgres',
+    connectionString: rootConnectionString,
   });
   
   try {
@@ -23,7 +31,7 @@ async function createAndInit() {
   }
 
   const appPool = new Pool({
-    connectionString: 'postgresql://postgres:root@localhost:5432/scanvista',
+    connectionString: appConnectionString,
   });
   
   try {

@@ -16,7 +16,7 @@ class AIClient:
             logger.warning("OPENAI_API_KEY not configured. Product Intelligence Engine running in mock mode.")
             self.client = None
 
-    async def ask_llm(self, system_prompt: str, user_prompt: str, json_mode: bool = False, temperature: float = 0.3) -> str:
+    async def ask_llm(self, system_prompt: str, user_prompt: str, json_mode: bool = False, temperature: float = 0.3, fallback_to_mock: bool = True) -> str:
         """Query LLM asynchronously, with robust context-aware mock fallback when keys are missing."""
         if self.client:
             try:
@@ -33,8 +33,10 @@ class AIClient:
                 )
                 return completion.choices[0].message.content.strip()
             except Exception as e:
-                logger.error(f"Error querying OpenAI LLM: {e}. Falling back to mock engine.", exc_info=True)
-                # Fallback to mock on error to maintain high availability
+                logger.error(f"Error querying OpenAI LLM: {e}.", exc_info=True)
+                if not fallback_to_mock:
+                    raise e
+                logger.info("Falling back to mock engine.")
 
         # Context-aware deterministic mock engine
         return self._generate_mock_response(system_prompt, user_prompt, json_mode)
@@ -75,6 +77,22 @@ class AIClient:
             intent = "recommend"
         elif any(w in user_lower for w in ["buy", "worth", "should i"]):
             intent = "buy_decide"
+
+        # Check if this is the content generator
+        is_content_generator = "content generator" in system_prompt.lower()
+        if is_content_generator:
+            prod_name_match = re.search(r"Product Name:\s*([^\n]+)", user_prompt, re.IGNORECASE)
+            prod_name = prod_name_match.group(1).strip() if prod_name_match else "ScanVista Premium Item"
+            if json_mode:
+                return json.dumps({
+                    "summary": f"The {prod_name} is an industry-leading product designed to elevate your spatial and interactive experiences. With high-fidelity engineering and a design tailored for reliability, it integrates seamlessly into modern workflows to provide optimized performance and maximum durability.\n\nCrafted using premium materials, it delivers robust utility and satisfies high standards of capability. Whether used in professional environments or personal settings, this product stands out as a highly versatile and dependable solution.",
+                    "use_cases": [
+                        f"Ideal for professional environments requiring {prod_name}.",
+                        "Optimized for high-demand, daily usage operations.",
+                        "Enables seamless integration and rapid deployment."
+                    ]
+                })
+            return "Summary: Mocked summary. Use cases: Mocked use cases."
 
         # Check for spatial AR guide triggers
         is_ar_guide = "ar_guide" in system_prompt.lower() or "spatial" in system_prompt.lower()
@@ -163,7 +181,7 @@ class AIClient:
                 return json.dumps({
                     "intent": "compare",
                     "confidence": "medium",
-                    "responseText": f"### Comparison Summary\n\nThe primary {prod_name} outperforms competitors on build quality and real-time response latency.",
+                    "responseText": f"The primary {prod_name} outperforms competitors on build quality and real-time response latency.",
                     "speechPayload": f"The primary {prod_name} outperforms competitors on build quality.",
                     "usedProductFields": ["name", "features", "specs"],
                     "missingFields": [],
@@ -208,7 +226,7 @@ class AIClient:
                 return json.dumps({
                     "intent": "buy_decide",
                     "confidence": "high",
-                    "responseText": f"### Decision Summary for {prod_name}\n\n**Pros:**\n- Industry leading specifications\n- Advanced 3D & AR interactivity\n\n**Cons:**\n- Premium pricing tier\n\n**Verdict:** A highly recommended investment (Score: 92/100).",
+                    "responseText": f"Decision summary for {prod_name}: Pros include industry-leading specifications and advanced 3D & AR interactivity. Cons include a premium pricing tier. Verdict: a highly recommended investment with a score of 92 out of 100.",
                     "speechPayload": f"The {prod_name} scored ninety two out of a hundred. Highly recommended for its advanced 3D AR capability and premium build.",
                     "usedProductFields": ["price", "specs", "features"],
                     "missingFields": [],

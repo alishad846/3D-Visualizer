@@ -12,6 +12,7 @@ ScanVista is built to showcase a premium consumer onboarding experience:
 *   **Vibrant Glassmorphic UI**: Translucent visual cards, deep base gradients, Outfit/Jakarta sans-serif custom typography, and dynamic micro-animations.
 *   **Rotatable 3D Engine**: Interactive component mesh loading with component-level raycasting highlights and exploded viewpoint physics.
 *   **Voice Q&A Assistant**: Intelligent audio transcription and narration processing. Speak directly to query pricing, specifications, and instructions.
+*   The assistant now returns plain natural-language text for UI display and only uses simple tables, charts, or images when explicitly requested.
 *   **PGVector Recommendation Carousel**: Vector embedding comparisons to suggest matched items inside the visual deck.
 *   **Real-time Analytics Dashboard**: Tracks scanners, device profiles, AR engagement, and session duration.
 

@@ -17,7 +17,8 @@ import {
   X,
   Rocket,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  UploadCloud,
 } from 'lucide-react';
 
 export default function DashboardLayout() {
@@ -39,6 +40,8 @@ export default function DashboardLayout() {
 
   const [projectSearch, setProjectSearch] = useState('');
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [createProductOpen, setCreateProductOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -57,7 +60,8 @@ export default function DashboardLayout() {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Heart, label: 'Favorites', path: '/dashboard/favorites' },
-    { icon: Layers, label: 'Products', path: '/dashboard/products' }, // Maps to products
+    { icon: Layers, label: 'Products', path: '/dashboard/products' },
+    { icon: UploadCloud, label: 'Incomplete Models', path: '/dashboard/incomplete-models' },
     { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
   ];
   const isProductAnalysisActive = location.pathname === '/dashboard/analytics';
@@ -107,51 +111,84 @@ export default function DashboardLayout() {
 
             {/* Analytics tree group */}
             <div className="pt-2">
-              <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-                Analytics
-              </div>
-              <div className="pl-5 space-y-1">
-                <Link
-                  to="/dashboard/analytics"
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                    isProductAnalysisActive
-                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {isProductAnalysisActive && (
-                    <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
-                  )}
-                  Product Analysis
-                </Link>
-                <Link
-                  to="/dashboard/analytics/project"
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                    location.pathname === '/dashboard/analytics/project'
-                      ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {location.pathname === '/dashboard/analytics/project' && (
-                    <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
-                  )}
-                  Project Analysis
-                </Link>
-              </div>
+              <button
+                type="button"
+                onClick={() => setAnalyticsOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+              >
+                <span>Analytics</span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${analyticsOpen ? 'rotate-180' : 'rotate-0'}`}
+                />
+              </button>
+              {analyticsOpen && (
+                <div className="pl-5 mt-2 space-y-1">
+                  <Link
+                    to="/dashboard/analytics"
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      isProductAnalysisActive
+                        ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {isProductAnalysisActive && (
+                      <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                    )}
+                    Product Analysis
+                  </Link>
+                  <Link
+                    to="/dashboard/analytics/project"
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                      location.pathname === '/dashboard/analytics/project'
+                        ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {location.pathname === '/dashboard/analytics/project' && (
+                      <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                    )}
+                    Project Analysis
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Create product tree group */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setCreateProductOpen((prev) => !prev)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+              >
+                <span>Create product</span>
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform ${createProductOpen ? 'rotate-180' : 'rotate-0'}`}
+                />
+              </button>
+              {createProductOpen && (
+                <div className="pl-5 mt-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/add-product')}
+                    className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
+                  >
+                    Single product
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/bulk-import')}
+                    className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
+                  >
+                    Upload from CSV or Excel file
+                  </button>
+                </div>
+              )}
             </div>
           </nav>
         </div>
 
         {/* Sidebar Footer */}
         <div className="space-y-3">
-          {/* Create Product Button */}
-          <button
-            onClick={() => navigate('/add-product')}
-            className="w-full bg-[#0c1324] hover:bg-[#11192b]/80 border border-[#1d2d4a] hover:border-[#00F0FF]/30 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer text-xs uppercase tracking-wider"
-          >
-            <Plus className="w-4 h-4 text-[#00F0FF]" />
-            <span>Create Product</span>
-          </button>
 
           {/* Upgrade Plan Card */}
           <button
@@ -209,13 +246,14 @@ export default function DashboardLayout() {
                 </span>
               </div>
 
-              <nav className="space-y-1" onClick={() => setMobileMenuOpen(false)}>
+              <nav className="space-y-1">
                 {menuItems.map((item) => {
                   const isActive = location.pathname === item.path;
                   return (
                     <Link
                       key={item.label}
                       to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group ${isActive
                           ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
                           : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -229,38 +267,87 @@ export default function DashboardLayout() {
                     </Link>
                   );
                 })}
+
                 <div className="pt-2">
-                  <div className="px-4 py-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold">
-                    Analytics
-                  </div>
-                  <div className="pl-5 space-y-1">
-                    <Link
-                      to="/dashboard/analytics"
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                        isProductAnalysisActive
-                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {isProductAnalysisActive && (
-                        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
-                      )}
-                      Product Analysis
-                    </Link>
-                    <Link
-                      to="/dashboard/analytics/project"
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
-                        location.pathname === '/dashboard/analytics/project'
-                          ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
-                          : 'text-slate-400 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {location.pathname === '/dashboard/analytics/project' && (
-                        <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
-                      )}
-                      Project Analysis
-                    </Link>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAnalyticsOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+                  >
+                    <span>Analytics</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${analyticsOpen ? 'rotate-180' : 'rotate-0'}`}
+                    />
+                  </button>
+                  {analyticsOpen && (
+                    <div className="pl-5 mt-2 space-y-1">
+                      <Link
+                        to="/dashboard/analytics"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                          isProductAnalysisActive
+                            ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {isProductAnalysisActive && (
+                          <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                        )}
+                        Product Analysis
+                      </Link>
+                      <Link
+                        to="/dashboard/analytics/project"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
+                          location.pathname === '/dashboard/analytics/project'
+                            ? 'text-[#00F0FF] bg-[#00F0FF]/5 font-semibold'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        {location.pathname === '/dashboard/analytics/project' && (
+                          <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
+                        )}
+                        Project Analysis
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCreateProductOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-semibold uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+                  >
+                    <span>Create product</span>
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${createProductOpen ? 'rotate-180' : 'rotate-0'}`}
+                    />
+                  </button>
+                  {createProductOpen && (
+                    <div className="pl-5 mt-2 space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate('/add-product');
+                        }}
+                        className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
+                      >
+                        Single product
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMobileMenuOpen(false);
+                          navigate('/bulk-import');
+                        }}
+                        className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-white hover:bg-white/5"
+                      >
+                        Upload from CSV or Excel file
+                      </button>
+                    </div>
+                  )}
                 </div>
               </nav>
             </div>
@@ -318,6 +405,7 @@ export default function DashboardLayout() {
               {location.pathname === '/dashboard/profile' && 'Profile Settings'}
               {location.pathname === '/dashboard/favorites' && 'Favorites'}
               {location.pathname === '/dashboard/products' && 'Asset Library'}
+              {location.pathname === '/dashboard/incomplete-models' && 'Incomplete Models'}
               {location.pathname === '/dashboard/project-view' && 'Deep Analysis'}
               {location.pathname === '/dashboard' && 'Creator Side'}
               {location.pathname === '/dashboard/analytics' && 'Product Analysis'}

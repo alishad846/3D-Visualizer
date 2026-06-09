@@ -44,3 +44,5 @@ venv/
 pip-log.txt
 .mypy_cache/
 .pytest_cache/
+
+prompt.txt

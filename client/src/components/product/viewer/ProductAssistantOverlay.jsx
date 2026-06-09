@@ -13,6 +13,18 @@ import {
 import { askProductAssistant } from "../../../api/ai";
 import { logProductScan } from "../../../api/viewer";
 
+function normalizeAssistantText(text) {
+    if (!text) return "";
+    return text
+        .replace(/^#+\s*/gm, "")
+        .replace(/\*\*(.*?)\*\*/g, "$1")
+        .replace(/__([^_]+)__/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .replace(/^\s*-\s+/gm, "• ")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+}
+
 const SpeechRecognition =
     typeof window !== "undefined"
         ? window.SpeechRecognition || window.webkitSpeechRecognition
@@ -49,7 +61,9 @@ function MessageBubble({ message }) {
                         {message.intent.replace("_", " ")}
                     </div>
                 ) : null}
-                <p className="whitespace-pre-wrap">{message.text}</p>
+                <p className="whitespace-pre-wrap">
+                    {message.role === "assistant" ? normalizeAssistantText(message.text) : message.text}
+                </p>
             </div>
         </div>
     );
@@ -172,10 +186,17 @@ export default function ProductAssistantOverlay({
         setStatus("idle");
     };
 
+    const handleTextareaKeyDown = (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            submitQuery();
+        }
+    };
+
     if (!open) return null;
 
     return (
-        <aside className="pointer-events-auto flex h-full max-h-full w-full max-w-[430px] flex-col rounded-lg border border-white/10 bg-[#06101d]/72 text-white shadow-[0_24px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
+        <aside className="pointer-events-auto flex h-full max-h-full w-full max-w-[420px] flex-col rounded-lg border border-white/10 bg-[#06101d]/72 text-white shadow-[0_24px_70px_rgba(0,0,0,0.5)] backdrop-blur-2xl">
             <div className="pointer-events-none absolute inset-0 rounded-lg opacity-[0.07] [background-image:radial-gradient(circle_at_1px_1px,#ffffff_1px,transparent_0)] [background-size:10px_10px]" />
             <div className="relative flex items-center justify-between border-b border-white/10 p-4">
                 <div className="flex items-center gap-3">
@@ -278,6 +299,7 @@ export default function ProductAssistantOverlay({
                             <textarea
                                 value={query}
                                 onChange={(event) => setQuery(event.target.value)}
+                                onKeyDown={handleTextareaKeyDown}
                                 rows={1}
                                 placeholder={isListening ? "Listening in English..." : "Ask about specs, usage, or recommendations"}
                                 className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-white outline-none placeholder:text-slate-500"
@@ -292,8 +314,9 @@ export default function ProductAssistantOverlay({
                             </button>
                         </form>
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    <div className="mt-2 flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
                         <span>{status === "listening" ? "Listening" : status === "thinking" ? "Thinking" : "Text output only"}</span>
+                        <span className="text-slate-400">Enter to send · Shift+Enter for newline</span>
                         <span>EN</span>
                     </div>
                 </div>

@@ -19,13 +19,8 @@ import requests
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-# ========================== YOUR CREDENTIALS ==========================
-# Hardcoded for your private local testing (never push this file to GitHub)
-YOUR_EMAIL = "garvj7607@gmail.com"          # ← CHANGE THIS
-YOUR_PASSWORD = "Garv@0036"           # ← CHANGE THIS
-PROJECT_NAME = "ScanVista"                     # Must exist in your account
-PRODUCT_SLUG = "radio"
-# =====================================================================
+PROJECT_NAME = os.getenv("SCANVISTA_TEST_PROJECT_NAME", "ScanVista")
+PRODUCT_SLUG = os.getenv("SCANVISTA_TEST_PRODUCT_SLUG", "radio")
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = ROOT_DIR / 'server' / '.env'
@@ -42,10 +37,14 @@ def load_environment() -> dict:
         'API_BASE_URL': os.getenv('API_BASE_URL') or 'http://localhost:5000/api',
         'FRONTEND_BASE_URL': os.getenv('CLIENT_URL') or 'http://localhost:5173',
         'DATABASE_URL': os.getenv('DATABASE_URL'),
+        'TEST_EMAIL': os.getenv('SCANVISTA_TEST_EMAIL'),
+        'TEST_PASSWORD': os.getenv('SCANVISTA_TEST_PASSWORD'),
     }
 
     if not env['DATABASE_URL']:
         raise RuntimeError('DATABASE_URL is required in server/.env')
+    if not env['TEST_EMAIL'] or not env['TEST_PASSWORD']:
+        raise RuntimeError('SCANVISTA_TEST_EMAIL and SCANVISTA_TEST_PASSWORD are required')
 
     return env
 
@@ -173,7 +172,7 @@ def main():
     session.headers.update({'Accept': 'application/json'})
 
     # Login with your credentials
-    auth_data = login_user(session, env['API_BASE_URL'], YOUR_EMAIL, YOUR_PASSWORD)
+    auth_data = login_user(session, env['API_BASE_URL'], env['TEST_EMAIL'], env['TEST_PASSWORD'])
     access_token = auth_data.get('accessToken')
     if not access_token:
         raise RuntimeError('Login failed. Please check your credentials.')

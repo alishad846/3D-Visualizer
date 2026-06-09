@@ -2,13 +2,17 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import AddProduct      from "./pages/product/AddProduct";
+import BulkImportProduct from "./pages/product/BulkImportProduct";
 import EditProduct     from "./pages/product/EditProduct";
 import ProductViewer   from "./components/product/viewer/ProductViewer";
 import Register        from "./pages/auth/Register";
 import Login           from "./pages/auth/Login";
+import ForgotPassword  from "./pages/auth/ForgotPassword";
+import ResetPassword   from "./pages/auth/ResetPassword";
 import DashboardHome   from "./pages/dashboard/DashboardHome";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import Products        from "./pages/dashboard/Products";
+import IncompleteProducts from "./pages/dashboard/IncompleteProducts";
 import Settings        from "./pages/dashboard/Settings";
 import ProjectView     from "./pages/dashboard/ProjectView";
 import Favorites       from "./pages/dashboard/Favorites";
@@ -36,6 +40,8 @@ export default function App() {
         <Route path="/"                       element={<Landing />} />
         <Route path="/register"               element={<Register />} />
         <Route path="/login"                  element={<Login />} />
+        <Route path="/forgot-password"        element={<ForgotPassword />} />
+        <Route path="/reset-password"         element={<ResetPassword />} />
         <Route path="/showcase"               element={<Navigate to="/#examples" replace />} />
         <Route path="/scan"                   element={<Navigate to="/#scan" replace />} />
         <Route path="/scanned-result"         element={<Navigate to="/#scan" replace />} />
@@ -56,6 +62,7 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index                    element={<DashboardHome />} />
             <Route path="products"          element={<Products />} />
+            <Route path="incomplete-models" element={<IncompleteProducts />} />
             <Route path="analytics"         element={<Analytics />} />
             <Route path="analytics/project" element={<ProjectAnalytics />} />
             <Route path="settings"          element={<Settings />} />
@@ -69,6 +76,7 @@ export default function App() {
               The global navbar IS rendered inside AddProduct/EditProduct directly. */}
           <Route path="/add-project"          element={<AddProject />} />
           <Route path="/add-product"          element={<AddProduct />} />
+          <Route path="/bulk-import"          element={<BulkImportProduct />} />
           <Route path="/edit-product/:id"     element={<EditProduct />} />
 
         </Route>

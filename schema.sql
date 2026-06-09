@@ -8,6 +8,8 @@ CREATE TABLE users (
     name VARCHAR(100) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until TIMESTAMPTZ NULL,
     preferred_language VARCHAR(10) DEFAULT 'en',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -21,6 +23,17 @@ CREATE TABLE refresh_tokens (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- PASSWORD RESET TOKENS
+CREATE TABLE reset_password_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    used_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -71,6 +84,8 @@ CREATE TABLE products (
     ai_summary TEXT,
     ai_use_cases JSONB DEFAULT '[]',
     ai_comparisons JSONB DEFAULT '[]',
+    ai_generation_status VARCHAR(50) DEFAULT 'never_generated',
+    ai_generated_at TIMESTAMPTZ,
 
     -- State
     is_published BOOLEAN DEFAULT TRUE,
@@ -152,6 +167,10 @@ CREATE TABLE comparison_sessions (
 CREATE INDEX idx_products_project_id ON products(project_id);
 CREATE INDEX idx_products_user_id ON products(user_id);
 CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_reset_password_tokens_user_id ON reset_password_tokens(user_id);
+CREATE INDEX idx_reset_password_tokens_token_hash ON reset_password_tokens(token_hash);
+CREATE INDEX idx_reset_password_tokens_expires_at ON reset_password_tokens(expires_at);
+CREATE INDEX idx_reset_password_tokens_used ON reset_password_tokens(used);
 CREATE INDEX idx_qr_codes_token ON qr_codes(qr_token);
 CREATE INDEX idx_qr_codes_product_id ON qr_codes(product_id);
 CREATE INDEX idx_qr_scans_product_id ON qr_scans(product_id);

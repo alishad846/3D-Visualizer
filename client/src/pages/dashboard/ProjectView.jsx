@@ -173,13 +173,21 @@ export default function ProjectView() {
               Publish your products and share their QR codes. Scan analytics — including scan counts, device types, and geographic data — will appear here automatically.
             </p>
             {publishedProducts.length === 0 && (
-              <button
-                onClick={() => navigate('/add-product')}
-                className="mt-6 bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/20 font-bold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Create &amp; Publish a Product
-              </button>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  onClick={() => navigate('/add-product')}
+                  className="bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 text-[#00F0FF] border border-[#00F0FF]/20 font-bold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 justify-center"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Create &amp; Publish a Product
+                </button>
+                <button
+                  onClick={() => navigate('/bulk-import')}
+                  className="bg-[#11192b] hover:bg-[#1e2e4f] text-slate-200 border border-[#1d2e4a] font-semibold py-2 px-5 rounded-xl text-xs uppercase tracking-wider transition-all"
+                >
+                  Upload from CSV or Excel file
+                </button>
+              </div>
             )}
           </div>
         </div>

@@ -1,173 +1,148 @@
-You have full access to this codebase. Before writing a single line of code, read and analyze every relevant file completely. Build a full picture of what already exists and what does not. Do not assume anything — verify by reading actual files.
+Before generating any code, carefully re-read the current schema.sql products table and productController.js to confirm every column, its nullability, its default, and how the current single-product insert works. Then implement the following with zero assumptions.
 
-Step 1 — Mandatory analysis before any planning:
-Read every one of these files fully:
-Backend:
+Feature: Bulk Product Import via CSV or Excel
 
-schema.sql — in the project root. This is the single source of truth for the database schema. Read every table, every column, every index. All SQL queries you write must be derived from this file only. Do not assume any column exists without confirming it here first.
-server/src/routes/analytics.js — list every route defined
-server/src/controllers/analyticsController.js — list every function, confirm which project-scope functions already exist, what SQL they already run, and whether they are correct against schema.sql
-server/src/middleware/auth.js — confirm how JWT auth works and what req.user contains
-server/src/db/index.js — confirm the exact pg pool query method signature used throughout the codebase
+Route
+POST /api/products/bulk-upload/:projectId
 
-Frontend:
-
-client/src/pages/dashboard/Analytics.jsx — understand full structure, how it passes props to cards, how mode, projectId, productId, refreshTick are used
-client/src/components/analytics/TrendCard.jsx — confirm whether it accepts mode prop and handles "project" scope
-client/src/components/analytics/GeoCard.jsx — same check
-client/src/components/analytics/SourceCard.jsx — same check
-client/src/components/analytics/RealtimeCard.jsx — same check
-client/src/api/analytics.js — list every function, confirm which project-scope API functions exist and what endpoints they call
-client/src/pages/dashboard/DashboardLayout.jsx — understand sidebar structure, how project and product switchers are rendered, whether conditional hide logic exists
-client/src/App.jsx — confirm existing analytics routes, confirm whether /dashboard/analytics/project already exists
-client/src/utils/timeAgo.js — confirm if it exists and what it exports
-client/src/store/workspaceStore.js — confirm what activeProject exposes
-
-After reading everything, explicitly answer each of these before proceeding:
-
-Which project-scope backend functions already exist and are correct? Which are missing or wrong?
-Which frontend card components already support mode="project"? Which do not?
-Do all project-scope API functions exist in analytics.js? List any missing ones.
-Does /dashboard/analytics/project route already exist in App.jsx?
-Does the sidebar Project Analysis item already point to /dashboard/analytics/project and is it enabled?
-Does the navbar have any conditional logic to hide the product switcher on certain pages?
-Does timeAgo utility exist?
-
-Present all findings clearly. Then present the complete implementation plan. Wait for approval before writing any code.
-
-What this prompt implements: Project Analysis page — backend and frontend.
-
-The database schema is in schema.sql at the project root. Read it fully. Every SQL query you write must reference only columns and tables that exist in that file. If you are unsure whether a column exists, check schema.sql before writing the query. Do not write any SQL from memory or assumption.
-
-Security rule — applies to every backend endpoint:
-Every query must verify project ownership. The authenticated user must own the project. Embed the ownership check directly in the SQL using a JOIN or WHERE clause — never a separate round trip. If the ownership check fails return 403. Never return data for a project the user does not own. The user ID comes from req.user.userId — confirm the exact field name by reading auth.js first.
-
-Backend — six endpoints needed for this page:
-If any already exist in analyticsController.js with correct SQL derived from schema.sql, do not rewrite them. Only implement what is missing or incorrect. For each endpoint, read schema.sql to confirm the columns exist before writing the query.
-The six endpoints are:
-
-GET /api/analytics/project/:projectId/overview — five stat card metrics: total scans all-time, unique visitors all-time, avg session duration, AR rate for last 28 days. Ownership verified via JOIN to projects table. Returns: { totalScans, uniqueVisitors, avgSessionSeconds, arRate }.
-GET /api/analytics/project/:projectId/realtime — count of distinct ip_hash values where scanned_at is within last 30 minutes, across all products in the project. Returns only { activeNow } — no per-minute sparkline, no country breakdown. Those are product-level details not needed here.
-GET /api/analytics/project/:projectId/trend?range=7d|28d|90d — daily scan counts grouped by date for current period and previous period of equal length. Current period: last N days. Previous period: the N days immediately before that. Returns { current: [{day, scans, uniqueVisitors, avgSession, arRate}], previous: [{day, scans}] }. Default range if missing or invalid: 28d.
-GET /api/analytics/project/:projectId/geo?range=7d|28d|90d — scan counts grouped by country_code across all products in project, filtered by range, ordered by scans descending, limit 50. Returns { countries: [{countryCode, scans, percentage}] }. Percentage is each country's share of total. Use window function for percentage calculation.
-GET /api/analytics/project/:projectId/sources?range=7d|28d|90d — scan counts grouped by referrer_type for current period and previous period. Calculate trend percentage in controller. Returns { sources: [{referrerType, scans, percentage, trend}] }.
-GET /api/analytics/project/:projectId/products?range=7d|28d|90d&sort=scans|unique_visitors|avg_session|ar_rate|last_scanned — one row per product in the project with aggregated stats. Include a second query for 7-day sparkline data. Merge sparkline into product rows in the controller. Mark products as dead if they have zero scans in the last 30 days. Use a whitelist map for the sort column — never interpolate user input directly into SQL. Returns { products: [{id, name, thumbnailUrl, slug, totalScans, uniqueVisitors, avgSessionSeconds, arRate, lastScanned, isDead, sparkline}] }.
-
-For every endpoint: wrap in try/catch, log errors with [Analytics] prefix, return 500 with { error: 'Analytics query failed' } on failure. Never expose raw SQL errors or stack traces to the client.
-All six routes must go through the existing auth middleware. Add them to server/src/routes/analytics.js following the exact same pattern already used in that file.
-
-Frontend — what to build:
-Page: client/src/pages/dashboard/ProjectAnalytics.jsx
-Reads activeProject from workspace store. If no project is selected, show a centered empty state with muted text: "Select a project from the top bar to view analytics."
-Page heading area:
-
-Title: "Project Analytics"
-Subtitle: active project name in muted color
-Top right: "Last updated: just now" timestamp + refresh icon button. Clicking refresh increments a refreshTick integer state. Every card receives refreshTick as a prop and re-fetches when it changes. Follow the exact same refreshTick pattern already used in the existing product analytics page.
-
-Layout — four rows:
-Row 1: Five equal stat cards — ProjectStatsRow component
-Row 2: Trend chart — reuse TrendCard with mode="project" and projectId
-Row 3: Product breakdown table — ProductBreakdownTable component, full width
-Row 4: Two cards side by side — reuse GeoCard (60%) and SourceCard (40%) with mode="project" and projectId
-On tablet: Row 1 wraps 3+2. Row 4 stacks full width.
-On mobile: single column. Row 1 is 2-per-row grid. Row 4 stacks. Country map hidden on mobile, table only.
-Colors and styling match product analytics exactly:
-
-Card background: #0b1622
-Card border: rgba(255,255,255,0.05)
-Card border-radius: rounded-xl
-Accent: #00F0FF
-Positive: #10b981
-Warning/dead: #f59e0b
-Text primary: #FFFFFF
-Text muted: #A0A0A0
-Section labels: text-[10px] uppercase tracking-widest text-[#A0A0A0] font-semibold
+Extract projectId from route param — never from the file
+Verify ownership of projectId against current authenticated user before any file parsing begins
+If ownership check fails, reject immediately with 403
 
 
-New component: client/src/components/analytics/ProjectStatsRow.jsx
-Fetches from two endpoints simultaneously using Promise.all:
+File Acceptance
 
-/api/analytics/project/:projectId/overview → totalScans, uniqueVisitors, avgSessionSeconds, arRate
-/api/analytics/project/:projectId/realtime → activeNow
-
-Re-fetches when projectId or refreshTick changes.
-Renders five equal-width cards in a single row. Each card: bg-[#0b1622] border border-white/5 rounded-xl p-4.
-Card 1 — Total Scans: label "TOTAL SCANS", large formatted number (28400 → "28.4k"), no filter.
-Card 2 — Unique Visitors: label "UNIQUE VISITORS", large formatted number, no filter.
-Card 3 — Active Now: label "ACTIVE NOW", count with a small pulsing green dot (#10b981) CSS pulse animation next to it, subtitle "in last 30 min" in muted text.
-Card 4 — AR Adoption: label "AR ADOPTION", percentage with % suffix in #00F0FF.
-Card 5 — Avg Session: label "AVG SESSION", formatted as "42s" if under 60 seconds, "2m 10s" if 130 seconds, etc.
-Number formatter for large numbers: implement inline — under 1000 show raw number, 1000-999999 show "1.2k", 1000000+ show "1.2M".
-Loading state: five shimmer skeleton cards using the same shimmer CSS already in the codebase.
-Error state: five cards each showing "—" as value, small error note below the row.
-Empty state: if activeNow is zero, show "0" — not an error.
-
-New component: client/src/components/analytics/ProductBreakdownTable.jsx
-Fetches from /api/analytics/project/:projectId/products?range=28d&sort=scans. Has its own local range state and sort state. Re-fetches when either changes or when refreshTick or projectId changes.
-Card wrapper: bg-[#0b1622] border border-white/5 rounded-xl p-5
-Card title: "Product Performance" — text-[11px] uppercase tracking-widest text-[#A0A0A0] font-semibold
-Subtitle: "All products in this project" — text-xs text-[#A0A0A0] mt-0.5 mb-4
-Table columns — in this exact order:
-
-Product: 32×32 thumbnail (rounded-lg object-cover) + product name. If thumbnailUrl is null: placeholder div bg-[rgba(0,240,255,0.1)] rounded-lg with ⬡ centered in #00F0FF.
-Scans: total scan count, right-aligned, text-white
-% of Project: calculated as (product.totalScans / sum of all totalScans) * 100. Show percentage text + a thin 3px height cyan progress bar below it, width proportional to percentage, background rgba(255,255,255,0.05), fill #00F0FF at 60% opacity. Handle division by zero — show "0%" if total is zero.
-Unique Visitors: right-aligned
-AR%: percentage with %. Color #00F0FF if above 20%, #A0A0A0 otherwise.
-Last Scanned: relative time using timeAgo utility. If lastScanned is null: show "Never".
-7D Trend: inline SVG sparkline. 7 bars, color #00F0FF, total width 56px, height 24px. If sparkline array is empty or all zeros: render a flat horizontal line in rgba(255,255,255,0.1).
-
-Dead product row (isDead: true): entire row opacity-50, small 4px amber circle #f59e0b rendered before the product name thumbnail.
-Column headers are clickable. Clicking fires a new fetch with the corresponding sort key. Valid sort keys: scans, unique_visitors, avg_session, ar_rate, last_scanned. Active sort column header shows ▼ in #00F0FF. Use a sort key map — never pass raw column names to the API.
-Bottom left of card: range dropdown 7D / 28D / 90D. Styled: bg-[#071018] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white. Nothing on the bottom right.
-Responsive:
-
-Tablet: hide 7D Trend column
-Mobile: show only Product + Scans columns. Each row is tappable — expands inline sub-row showing % of Project, AR%, Last Scanned in a muted smaller text row below
-
-Loading: shimmer over table body, column headers remain visible.
-Error: "Failed to load product data. Try refreshing." centered in muted red text.
-Empty: "No products found for this project." centered in muted text.
-
-Reusing existing cards:
-For TrendCard, GeoCard, SourceCard — after reading those files in Step 1, if they already support mode="project" pass the correct props and do not modify them. If any card does not support mode="project", report the gap clearly in the plan and ask before modifying. Do not modify any existing card component without explicit approval.
-
-Routing — client/src/App.jsx:
-If /dashboard/analytics/project does not already exist, add inside ProtectedRoute and DashboardLayout:
-jsx<Route path="analytics/project" element={<ProjectAnalytics />} />
-Import ProjectAnalytics from ./pages/dashboard/ProjectAnalytics. Do not change any other route.
-
-Sidebar — client/src/pages/dashboard/DashboardLayout.jsx:
-Find the Project Analysis sidebar item. If it currently has a "Soon" badge and is disabled, make these changes only:
-
-Remove the "Soon" badge
-Enable the link, point it to /dashboard/analytics/project
-Active styling when current route is /dashboard/analytics/project
-
-Product switcher visibility: on the /dashboard/analytics/project page the product switcher must be hidden — only the project switcher is visible. Check how the navbar currently renders the product switcher. Use useLocation() from react-router-dom to detect the current route. If the route is /dashboard/analytics/project, do not render the product switcher. Apply this change only in the location where the product switcher is rendered — do not restructure the navbar or sidebar.
-Do not change any other sidebar item, any other navbar element, or any other layout property.
-
-Files to create:
-
-client/src/pages/dashboard/ProjectAnalytics.jsx
-client/src/components/analytics/ProjectStatsRow.jsx
-client/src/components/analytics/ProductBreakdownTable.jsx
-
-Files to modify only if needed after Step 1 analysis confirms they are incomplete:
-
-server/src/controllers/analyticsController.js — add missing project-scope functions only
-server/src/routes/analytics.js — add missing project-scope routes only
-client/src/api/analytics.js — add missing project-scope API functions only
-client/src/App.jsx — add route only if missing
-client/src/pages/dashboard/DashboardLayout.jsx — sidebar activation + product switcher hide only
-
-Files to never touch:
-
-schema.sql
-Any existing analytics card component
-client/src/pages/dashboard/Analytics.jsx
-Any auth, product, viewer, or unrelated files
+Accept only .csv and .xlsx
+Multer memory storage
+Reject if file size > 2MB
+Reject if parsed row count > 100
+Both checks before any validation logic runs
 
 
-Before writing any code: Complete Step 1 analysis, answer every question listed, present the full implementation plan file by file, and wait for explicit approval.
+Required Columns in File
+Re-check schema.sql and productController.js to confirm, but based on current understanding:
+
+name — non-empty string, NOT NULL
+category — non-empty string, NOT NULL
+
+These two must be present in every row. If either is missing or empty, reject that row.
+
+Optional Columns in File — Null Accepted
+Carefully verify each of these against schema.sql for their actual DB nullability and defaults:
+
+tagline
+description
+brand
+sku
+thumbnail_url — if present, validate it is a valid URL string pointing to our Supabase storage domain. No HTTP liveness check.
+usdz_url — same URL format validation as above
+price — must be numeric if present
+currency — string, defaults to INR if absent
+buy_url — valid URL format if present
+qr_label
+features — pipe-separated string in cell: Feature1|Feature2. Parse server-side into array before insert.
+specs — pipe-separated key:value pairs in cell: Weight:200g|Height:10cm. Parse server-side into array of objects [{ key, value }] before insert.
+
+
+Columns Excluded From File Entirely — Server Handles These
+
+project_id — taken from route param
+model_url — set to null on bulk insert, user attaches model later
+usdz_url — wait, this is in optional above, do not duplicate
+gallery_urls — excluded from bulk import entirely, do not accept in file
+slug — server generated from brand + name, same logic as current single product flow: lowercase, replace non-alphanumeric with -, trim hyphens, fallback to product, append short random suffix if collision. Generate all slugs in memory for the batch, then resolve collisions in one single WHERE slug = ANY($1) query against DB.
+status — hardcoded to 'draft' for all bulk inserted products
+id, created_at, updated_at — DB generated
+
+
+Two-Gate Validation — Strict Order
+Gate 1 — File-level header validation:
+
+Normalize all headers: trim whitespace, lowercase
+Check all required columns are present
+Check no unknown/unexpected columns exist
+If gate 1 fails → reject entire file immediately, return which headers are missing and which are unexpected. Do not proceed to row parsing.
+
+Gate 2 — Row-level validation:
+
+Validate every row fully before touching the DB
+Collect all valid rows and all error rows separately
+Do not insert anything until all rows are evaluated
+For each invalid row return:
+
+json{
+  "row": 4,
+  "field": "name",
+  "error": "Name is required",
+  "solution": "Provide a non-empty product name in the name column"
+}
+
+Duplicate detection within the file itself: if two rows share the same name or sku, reject the second occurrence with a clear error
+Duplicate detection against DB: check sku collisions within the same project in one single query for the whole batch, not per row
+
+
+DB Insertion — Only After All Validation Passes
+
+Insert valid rows only
+Chunk size: 10 rows per chunk
+One transaction per chunk covering both tables: products insert and qr_codes insert
+For each inserted product, immediately create a qr_codes record in the same transaction:
+
+product_id = newly inserted product id
+project_id = from route param
+user_id = current authenticated user
+qr_token = generate unique token same way current single product flow does
+destination_url = ${CLIENT_URL}/p/${slug}
+qr_image_url = generate QR image same way current flow does, store to Supabase, save URL
+scan_count = 0
+is_active = true
+
+
+If a chunk transaction fails, log it, skip that chunk, continue with next chunk. Do not abort the entire upload.
+
+
+Rate Limiting
+
+Apply a separate rate limit on this endpoint
+Stricter than the normal product create endpoint
+
+
+Response Shape
+json{
+  "insertedCount": 12,
+  "skippedRows": [
+    {
+      "row": 3,
+      "field": "model_url",
+      "error": "model_url is not accepted in bulk import",
+      "solution": "Remove the model_url column from your file. Models are attached after import."
+    },
+    {
+      "row": 7,
+      "field": "price",
+      "error": "Price must be a number",
+      "solution": "Enter a valid number or leave the price cell blank"
+    }
+  ]
+}
+
+Frontend — Bulk Import UI
+
+Separate route, not inside the single product add flow
+File selector accepting .csv and .xlsx only
+Provide a downloadable template file with exact headers and one example row
+On submit, show loading state
+On response, show summary screen:
+
+Total rows in file
+Inserted count
+Skipped rows table: row number, field, error, solution
+
+
+No QR page, no finalize page for this flow
+Bulk imported products show an "Incomplete — Add 3D Model" badge on the project dashboard products page
+
+Frontend — Products Page Additions
+
+"Add Model" button visible only on product cards where model_url is null. This opens a model upload flow for that specific product. Upload goes to Supabase, URL is saved back to that product. This is an edit to the existing product, not a new product creation. This page is separate from the product detail/viewer page.
+"View QR Code" option on every product card. Shows the QR code image for that product fetched from qr_codes table by product_id.

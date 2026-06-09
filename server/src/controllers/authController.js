@@ -1,16 +1,40 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
-const { JWT_SECRET, JWT_REFRESH_SECRET, hashRefreshToken } = require('../utils/tokens');
+const {
+  MAX_LOGIN_ATTEMPTS,
+  ACCOUNT_LOCK_MINUTES,
+} = require('../config/env');
+const {
+  JWT_SECRET,
+  JWT_REFRESH_SECRET,
+  hashRefreshToken,
+  hashPasswordResetToken,
+} = require('../utils/tokens');
 const {
   refreshCookieOptions,
   clearRefreshCookieOptions,
 } = require('../utils/cookies');
+const {
+  createAndSendResetToken,
+  cleanupResetTokens,
+} = require('../services/passwordResetService');
 
 // Helper to validate email format
 const isValidEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
+};
+
+const isStrongPassword = (password) =>
+  typeof password === 'string'
+  && password.length >= 8
+  && /[A-Z]/.test(password)
+  && /[a-z]/.test(password)
+  && /[0-9]/.test(password);
+
+const forgotPasswordSuccess = {
+  message: 'If an account exists for this email, a password reset link has been sent.',
 };
 
 // POST /api/auth/register
@@ -101,7 +125,7 @@ exports.login = async (req, res, next) => {
   try {
     // 1. Fetch user
     const userResult = await db.query(
-      `SELECT id, name, email, password_hash, preferred_language
+      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until
        FROM users
        WHERE email = $1`,
       [email]
@@ -114,12 +138,56 @@ exports.login = async (req, res, next) => {
 
     const user = userResult.rows[0];
 
+    if (user.locked_until && new Date(user.locked_until) > new Date()) {
+      const millisecondsRemaining = new Date(user.locked_until).getTime() - Date.now();
+      return res.status(423).json({
+        error: 'Account temporarily locked.',
+        minutesRemaining: Math.max(1, Math.ceil(millisecondsRemaining / 60000)),
+      });
+    }
+
     // 2. Compare password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      // Return generic 401 error (identical message)
-      return res.status(401).json({ error: 'Invalid email or password' });
+      const nextAttempts = Number(user.failed_login_attempts || 0) + 1;
+
+      if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
+        await db.query(
+          `UPDATE users
+           SET failed_login_attempts = 0,
+               locked_until = NOW() + ($2 || ' minutes')::interval,
+               updated_at = NOW()
+           WHERE id = $1`,
+          [user.id, ACCOUNT_LOCK_MINUTES]
+        );
+
+        return res.status(423).json({
+          error: `Account locked for ${ACCOUNT_LOCK_MINUTES} minutes.`,
+        });
+      }
+
+      await db.query(
+        `UPDATE users
+         SET failed_login_attempts = $2,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [user.id, nextAttempts]
+      );
+
+      return res.status(401).json({
+        error: 'Incorrect password.',
+        attemptsRemaining: Math.max(MAX_LOGIN_ATTEMPTS - nextAttempts, 0),
+      });
     }
+
+    await db.query(
+      `UPDATE users
+       SET failed_login_attempts = 0,
+           locked_until = NULL,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [user.id]
+    );
 
     // 3. Revoke all existing refresh tokens for this user before issuing new ones (Clean Sessions)
     await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
@@ -162,6 +230,117 @@ exports.login = async (req, res, next) => {
       user: userResponse
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res, next) => {
+  const { email } = req.body;
+
+  try {
+    if (!email || !isValidEmail(email)) {
+      return res.json(forgotPasswordSuccess);
+    }
+
+    const userResult = await db.query(
+      `SELECT id, email FROM users WHERE email = $1`,
+      [email]
+    );
+
+    if (userResult.rowCount > 0) {
+      try {
+        await createAndSendResetToken(userResult.rows[0]);
+      } catch (mailError) {
+        console.error('Password reset email failed:', mailError.message);
+      }
+    } else {
+      await cleanupResetTokens();
+    }
+
+    return res.json(forgotPasswordSuccess);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/reset-password
+exports.resetPassword = async (req, res, next) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({
+      error: 'Invalid or expired password reset token.',
+    });
+  }
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({
+      error: 'Password must be at least 8 characters and include uppercase, lowercase, and a number.',
+    });
+  }
+
+  const tokenHash = hashPasswordResetToken(token);
+  let transactionStarted = false;
+
+  try {
+    await cleanupResetTokens();
+
+    await db.query('BEGIN');
+    transactionStarted = true;
+
+    const tokenResult = await db.query(
+      `SELECT rpt.id, rpt.user_id
+       FROM reset_password_tokens rpt
+       JOIN users u ON u.id = rpt.user_id
+       WHERE rpt.token_hash = $1
+         AND rpt.used = false
+         AND rpt.expires_at > NOW()
+       FOR UPDATE OF rpt`,
+      [tokenHash]
+    );
+
+    if (tokenResult.rowCount === 0) {
+      await db.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Invalid or expired password reset token.',
+      });
+    }
+
+    const resetToken = tokenResult.rows[0];
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+
+    await db.query(
+      `UPDATE users
+       SET password_hash = $1,
+           failed_login_attempts = 0,
+           locked_until = NULL,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [passwordHash, resetToken.user_id]
+    );
+
+    await db.query(
+      `UPDATE reset_password_tokens
+       SET used = true,
+           used_at = NOW()
+       WHERE id = $1`,
+      [resetToken.id]
+    );
+
+    await db.query(
+      `DELETE FROM refresh_tokens WHERE user_id = $1`,
+      [resetToken.user_id]
+    );
+
+    await db.query('COMMIT');
+
+    return res.json({
+      message: 'Password reset successful. Please log in with your new password.',
+    });
+  } catch (error) {
+    if (transactionStarted) {
+      await db.query('ROLLBACK');
+    }
     next(error);
   }
 };

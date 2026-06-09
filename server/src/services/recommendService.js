@@ -4,12 +4,12 @@ const { AI_SERVICE_URL } = require('../config/env');
 const PUBLIC_PRODUCT_FIELDS = `
   p.id, p.name, p.tagline, p.description, p.category, p.brand, p.sku,
   p.thumbnail_url, p.model_url, p.usdz_url, p.features, p.specs,
-  p.price, p.currency, p.buy_url, p.qr_label, p.ai_summary,
-  p.is_published, p.slug
+  p.price, p.currency, p.buy_url, p.qr_label, p.ai_summary, p.ai_use_cases,
+  p.ai_generation_status, p.ai_generated_at, p.is_published, p.slug
 `;
 
 const PRODUCT_FIELDS_FOR_EMBEDDING = `
-  id, name, tagline, description, category, brand, features, specs
+  id, name, tagline, description, category, brand, features, specs, ai_generation_status, ai_generated_at
 `;
 
 const isUuid = (value) =>
@@ -37,6 +37,8 @@ function normalizeProduct(product) {
     ...publicProduct,
     features: normalizeJsonField(publicProduct.features, []),
     specs: normalizeJsonField(publicProduct.specs, []),
+    ai_use_cases: normalizeJsonField(publicProduct.ai_use_cases, []),
+    gallery_urls: normalizeJsonField(publicProduct.gallery_urls, []),
   };
 }
 
@@ -62,7 +64,8 @@ class RecommendService {
     if (!productId) return null;
 
     const result = await db.query(
-      `SELECT id, name, tagline, description, category, brand, features, specs, price, currency
+      `SELECT id, name, tagline, description, category, brand, features, specs, price, currency,
+              thumbnail_url, gallery_urls, buy_url
        FROM products
        WHERE id = $1 AND is_published = true`,
       [productId]
@@ -237,6 +240,71 @@ class RecommendService {
       productId: normalized.id,
       modelVersion: data.model_version || 'text-embedding-ada-002',
     };
+  }
+
+  async refreshProductAIContent(product) {
+    const normalized = normalizeProduct(product);
+    if (!normalized?.id) return null;
+
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/ai/content/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: normalized.id,
+          name: normalized.name,
+          tagline: normalized.tagline,
+          description: normalized.description,
+          category: normalized.category,
+          brand: normalized.brand,
+          features: normalized.features || [],
+          specs: normalized.specs || [],
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'AI content generation failed');
+      }
+
+      const data = await response.json();
+      if (!data.summary || !Array.isArray(data.use_cases)) {
+        throw new Error('AI content service returned malformed response');
+      }
+
+      // Update product with generated content, status, and generated_at timestamp
+      await db.query(
+        `UPDATE products SET
+           ai_summary = $1,
+           ai_use_cases = $2,
+           ai_generation_status = 'completed',
+           ai_generated_at = NOW(),
+           updated_at = NOW()
+         WHERE id = $3`,
+        [data.summary, JSON.stringify(data.use_cases), normalized.id]
+      );
+
+      return {
+        productId: normalized.id,
+        summary: data.summary,
+        useCases: data.use_cases,
+      };
+    } catch (error) {
+      console.warn(`[RecommendService] AI content generation failed for product ${normalized.id}:`, error.message);
+      
+      // On failure: Log failure, update status to 'failed', but DO NOT clear/overwrite ai_summary & ai_use_cases
+      await db.query(
+        `UPDATE products SET
+           ai_generation_status = 'failed',
+           updated_at = NOW()
+         WHERE id = $1`,
+        [normalized.id]
+      );
+
+      throw error;
+    }
   }
 }
 
