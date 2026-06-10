@@ -1,13 +1,15 @@
 import React, { Suspense, useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, View, ShoppingCart, Info, Share2, CheckCircle2, Hexagon, Maximize2, Minimize2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, View, ShoppingCart, Info, Share2, CheckCircle2, Hexagon, Maximize2, Minimize2, QrCode, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import ProductCanvas from '../../components/product/viewer/canvas/ProductCanvas';
 
 export default function ScannedProductUI() {
   const navigate = useNavigate();
   const canvasContainerRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -85,13 +87,24 @@ export default function ScannedProductUI() {
           </div>
         </motion.div>
 
-        <motion.button 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-all border border-white/10"
-        >
-          <Share2 className="w-5 h-5 text-slate-300" />
-        </motion.button>
+        <div className="flex items-center gap-3">
+          <motion.button 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => setShowQR(true)}
+            className="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
+          >
+            <QrCode className="w-5 h-5 text-slate-300 group-hover:text-[#00F0FF]" />
+          </motion.button>
+
+          <motion.button 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
+          >
+            <Share2 className="w-5 h-5 text-slate-300 group-hover:text-white" />
+          </motion.button>
+        </div>
       </nav>
 
       {/* Main Content Split Layout */}
@@ -183,6 +196,44 @@ export default function ScannedProductUI() {
           </div>
         </motion.div>
       </div>
+
+      {/* QR Code Modal */}
+      <AnimatePresence>
+        {showQR && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-[#0a1523] border border-white/10 p-8 rounded-3xl max-w-sm w-full relative flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            >
+              <button 
+                onClick={() => setShowQR(false)}
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/20 flex items-center justify-center mx-auto mb-4">
+                  <QrCode className="w-6 h-6 text-[#00F0FF]" />
+                </div>
+                <h3 className="text-xl font-display font-semibold text-white mb-2">Scan to View</h3>
+                <p className="text-sm text-slate-400">Scan this QR code to view the {product.name} on your mobile device in AR.</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-2xl shadow-xl">
+                <QRCodeSVG value={window.location.href} size={200} />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

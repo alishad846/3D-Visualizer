@@ -67,7 +67,7 @@ class RecommendService {
       `SELECT id, name, tagline, description, category, brand, features, specs, price, currency,
               thumbnail_url, gallery_urls, buy_url
        FROM products
-       WHERE id = $1 AND is_published = true`,
+       WHERE id = $1`,
       [productId]
     );
 

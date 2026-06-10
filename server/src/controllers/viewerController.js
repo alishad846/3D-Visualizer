@@ -31,7 +31,7 @@ exports.getProductById = async (req, res, next) => {
       result = await db.query(
         `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
-         WHERE id = $1 AND is_published = true`,
+         WHERE id = $1`,
         [productId]
       );
     } else {
@@ -183,7 +183,7 @@ exports.logScan = async (req, res, next) => {
       resolvedProductId = slugRes.rows[0].id;
     } else {
       const productRes = await db.query(
-        'SELECT id FROM products WHERE id = $1 AND is_published = true',
+        'SELECT id FROM products WHERE id = $1',
         [productId]
       );
       if (productRes.rowCount === 0) {

@@ -8,13 +8,20 @@ body {
     background: #071018;
     color: white;
     font-family: Inter, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    color-scheme: dark;
+}
+
+* {
+    -webkit-backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
+    backdrop-filter: var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);
 }
 
 .ai-orbit-border {
     position: relative;
     background:
-        conic-gradient(
-            from var(--ai-orbit-angle, 0deg),
+        conic-gradient(from var(--ai-orbit-angle, 0deg),
             transparent 0deg,
             transparent 52deg,
             #00f0ff 78deg,
@@ -22,8 +29,7 @@ body {
             #ff4ecd 145deg,
             #ffe66d 172deg,
             transparent 205deg,
-            transparent 360deg
-        );
+            transparent 360deg);
     animation: ai-orbit-spin 4s linear infinite;
 }
 

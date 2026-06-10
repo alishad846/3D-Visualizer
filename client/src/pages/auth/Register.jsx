@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { View } from 'lucide-react';
+import { View, Eye, EyeOff } from 'lucide-react';
 import SphereLogo from '../../components/SphereLogo';
 import { registerUser } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
@@ -14,6 +14,7 @@ export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleRegister = async (e) => {
@@ -64,6 +65,9 @@ export default function Register() {
         <div className="absolute top-8 right-8 sm:top-12 sm:right-12 flex items-center gap-3 text-sm font-medium">
           <span className="text-[#888] hover:text-white cursor-pointer transition-colors" onClick={() => navigate('/login')}>Login</span>
           <button 
+            type="button"
+            title="Switch to Login"
+            aria-label="Switch to Login"
             onClick={() => navigate('/login')} 
             className="w-12 h-6 bg-[#333] rounded-full relative flex items-center cursor-pointer transition-colors hover:bg-[#444]"
           >
@@ -97,6 +101,8 @@ export default function Register() {
                 <div className="space-y-5">
                 <div>
                   <input 
+                    id="name"
+                    name="name"
                     type="text" 
                     required
                     value={name}
@@ -108,6 +114,8 @@ export default function Register() {
 
                 <div>
                   <input 
+                    id="email"
+                    name="email"
                     type="email" 
                     required
                     value={email}
@@ -117,15 +125,24 @@ export default function Register() {
                   />
                 </div>
                 
-                <div>
+                <div className="relative">
                   <input 
-                    type="password" 
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"} 
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password" 
-                    className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                    className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                   />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#888] hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 

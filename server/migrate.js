@@ -115,6 +115,20 @@ async function runMigrations() {
 
   console.log('Created or verified indexes.');
 
+  // 8. Security Settings (Settings page real data)
+  await db.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
+  `);
+  console.log('Added two_factor_enabled to users.');
+
+  await db.query(`
+    ALTER TABLE refresh_tokens
+      ADD COLUMN IF NOT EXISTS device_info JSONB DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45);
+  `);
+  console.log('Added device_info and ip_address to refresh_tokens.');
+
   console.log('Migrations completed successfully!');
 }
 

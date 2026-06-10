@@ -476,9 +476,8 @@ export default function LandingHome() {
   return (
     <div className="min-h-screen bg-[#050b14] text-white selection:bg-cyan-300/30">
       <header
-        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-          scrolled ? "border-b border-white/8 bg-[#050b14]/92 backdrop-blur-xl" : "bg-transparent"
-        }`}
+        className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${scrolled ? "border-b border-white/8 bg-[#050b14]/92 backdrop-blur-xl" : "bg-transparent"
+          }`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
           <button
@@ -717,7 +716,7 @@ export default function LandingHome() {
               <textarea className="min-h-32 resize-none rounded-2xl border border-white/10 bg-black/20 px-4 py-4 text-sm text-white outline-none placeholder:text-slate-600 focus:border-cyan-300/40" placeholder="Tell us what you want to build" />
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs leading-6 text-slate-500">This form is a frontend placeholder until backend contact handling is added.</p>
-                <PrimaryButton onClick={() => {}}>
+                <PrimaryButton onClick={() => { }}>
                   Send message
                 </PrimaryButton>
               </div>

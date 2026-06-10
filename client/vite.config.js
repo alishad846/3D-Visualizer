@@ -4,7 +4,28 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
 
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'strip-dev-headers',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          const originalSetHeader = res.setHeader;
+          res.setHeader = function (key, value) {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey === 'pragma' || lowerKey === 'expires' || lowerKey === 'x-xss-protection') {
+              return;
+            }
+            if (lowerKey === 'content-security-policy') {
+              return;
+            }
+            return originalSetHeader.apply(this, arguments);
+          };
+          next();
+        });
+      }
+    }
+  ],
 
   // ── Three.js deduplication ──────────────────────────────────────
   // "@react-three/fiber" and "@react-three/drei" each resolve their

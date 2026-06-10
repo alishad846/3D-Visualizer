@@ -1,4 +1,4 @@
-import { publicRequest } from './client';
+import { publicRequest, authRequest } from './client';
 
 export async function registerUser({ name, email, password }) {
   const res = await publicRequest('/auth/register', {
@@ -53,4 +53,47 @@ export async function logoutUser() {
   } catch {
     // Cookie-only logout should not block local auth cleanup.
   }
+}
+
+// --- Security Settings ---
+
+export async function changePassword(currentPassword, newPassword) {
+  const res = await authRequest('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to change password');
+  return data;
+}
+
+export async function updateTwoFactor(enabled) {
+  const res = await authRequest('/auth/update-2fa', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update 2FA');
+  return data;
+}
+
+export async function getSessions() {
+  const res = await authRequest('/auth/sessions', { method: 'GET' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch sessions');
+  return data.sessions;
+}
+
+export async function logoutAllSessions() {
+  const res = await authRequest('/auth/sessions/logout-all', { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to logout other sessions');
+  return data;
+}
+
+export async function logoutSession(id) {
+  const res = await authRequest(`/auth/sessions/${id}/logout`, { method: 'POST' });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to logout session');
+  return data;
 }

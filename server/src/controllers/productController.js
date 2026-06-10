@@ -511,7 +511,7 @@ async function bulkUploadProductsToDb(products) {
         skippedRows.push({
           row: product.rowNumber,
           field: 'bulk_upload',
-          error: 'Failed to insert this product batch. Please retry smaller file sizes or check product data.',
+          error: 'Database error: ' + error.message,
           solution: 'Split the upload into smaller files or verify all rows contain valid supported column data.',
         });
       });

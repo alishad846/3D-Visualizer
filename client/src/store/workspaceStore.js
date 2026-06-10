@@ -7,11 +7,21 @@ export const useWorkspaceStore = create((set, get) => ({
   activeProject: null,
   products: [],
   activeProduct: null,
+  favorites: [],
   loadingProjects: false,
   loadingProducts: false,
   error: null,
 
   setProjects: (projects) => set({ projects }),
+  
+  toggleFavorite: (id) => set(state => {
+    const isFav = state.favorites.includes(id);
+    return {
+      favorites: isFav 
+        ? state.favorites.filter(fid => fid !== id)
+        : [...state.favorites, id]
+    };
+  }),
   
   setActiveProject: (project) => {
     set({ activeProject: project, activeProduct: null, products: [] });

@@ -17,7 +17,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="h-screen w-screen bg-[#020202] text-white flex overflow-hidden font-sans">
-      
+
       {/* Sidebar */}
       <motion.aside
         animate={{ width: collapsed ? 80 : 260 }}
@@ -46,11 +46,10 @@ export default function DashboardLayout() {
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${
-                  isActive
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm font-medium ${isActive
                     ? 'bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/20'
                     : 'text-[#888] hover:text-white hover:bg-white/5'
-                }`}
+                  }`}
               >
                 <item.icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-[#00F0FF]' : ''}`} />
                 <AnimatePresence>
@@ -86,7 +85,7 @@ export default function DashboardLayout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        
+
         {/* Top Bar */}
         <header className="h-16 border-b border-white/5 bg-[#050505]/60 backdrop-blur-xl flex items-center justify-between px-8 shrink-0">
           <div className="relative w-80">

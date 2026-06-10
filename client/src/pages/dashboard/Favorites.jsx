@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { Search, ExternalLink, Edit3, Box, Globe, FolderOpen, Package } from 'lucide-react';
+import { Search, ExternalLink, Edit3, Box, Globe, FolderOpen, Package, Heart, QrCode, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 function relativeTime(dateStr) {
   if (!dateStr) return '—';
@@ -17,19 +18,24 @@ function relativeTime(dateStr) {
 }
 
 export default function Favorites() {
-  const { products, loadingProducts, activeProject } = useWorkspaceStore();
+  const { products, loadingProducts, activeProject, favorites, toggleFavorite: storeToggleFavorite } = useWorkspaceStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedQRProduct, setSelectedQRProduct] = useState(null);
 
-  // Only published products are "live" and relevant to show here
-  const publishedProducts = useMemo(
-    () => products.filter(p => p.is_published),
-    [products]
+  const toggleFavorite = (e, id) => {
+    e.stopPropagation();
+    storeToggleFavorite(id);
+  };
+
+  const favoriteProducts = useMemo(
+    () => products.filter(p => favorites.includes(p.id)),
+    [products, favorites]
   );
 
   const filtered = useMemo(() => {
-    let result = activeTab === 'all' ? publishedProducts : [];
+    let result = activeTab === 'all' ? favoriteProducts : [];
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(p =>
@@ -39,7 +45,7 @@ export default function Favorites() {
       );
     }
     return result;
-  }, [publishedProducts, activeTab, searchQuery]);
+  }, [favoriteProducts, activeTab, searchQuery]);
 
   // ── No project selected ──────────────────────────────────────────────────
   if (!activeProject) {
@@ -72,10 +78,10 @@ export default function Favorites() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-white">Published Products</h2>
+          <h2 className="text-2xl font-black text-white">Favorites</h2>
           <p className="text-slate-400 text-xs mt-1 font-semibold">
-            Live products in <span className="text-slate-300">{activeProject.name}</span>
-            {' '}&mdash; {publishedProducts.length} published
+            Favorited products in <span className="text-slate-300">{activeProject.name}</span>
+            {' '}&mdash; {favoriteProducts.length} items
           </p>
         </div>
       </div>
@@ -83,7 +89,7 @@ export default function Favorites() {
       {/* Search + Tabs */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {[{ value: 'all', label: 'Published' }].map(tab => (
+          {[{ value: 'all', label: 'Favorites' }].map(tab => (
             <button
               key={tab.value}
               onClick={() => setActiveTab(tab.value)}
@@ -93,7 +99,7 @@ export default function Favorites() {
                   : 'text-slate-400 hover:text-white border-transparent hover:bg-white/5'
               }`}
             >
-              {tab.label} ({publishedProducts.length})
+              {tab.label} ({favoriteProducts.length})
             </button>
           ))}
         </div>
@@ -102,7 +108,7 @@ export default function Favorites() {
           <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search published products..."
+            placeholder="Search favorites..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             className="w-full bg-[#11192b] border border-[#1d2d4a] rounded-full pl-11 pr-5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00F0FF] transition-all"
@@ -111,14 +117,14 @@ export default function Favorites() {
       </div>
 
       {/* ── Empty: no published products ── */}
-      {publishedProducts.length === 0 && (
+      {favoriteProducts.length === 0 && (
         <div className="bg-[#0c1324] border-2 border-dashed border-[#1d2d4a] rounded-2xl p-16 text-center">
           <div className="w-16 h-16 bg-[#11192b] border border-[#1d2d4a] rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Globe className="w-7 h-7 text-slate-600" />
+            <Heart className="w-7 h-7 text-slate-600" />
           </div>
-          <h3 className="text-lg font-bold text-white mb-2">No Published Products</h3>
+          <h3 className="text-lg font-bold text-white mb-2">No Favorites Yet</h3>
           <p className="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed mb-6">
-            Products you publish will appear here. Go to your product library, create a product, and publish it to make it live.
+            Products you favorite from the library will appear here for quick access.
           </p>
           <button
             onClick={() => navigate('/dashboard/products')}
@@ -130,7 +136,7 @@ export default function Favorites() {
       )}
 
       {/* ── Search returned nothing ── */}
-      {publishedProducts.length > 0 && filtered.length === 0 && (
+      {favoriteProducts.length > 0 && filtered.length === 0 && (
         <div className="bg-[#0c1324] border border-[#1e2e4f] rounded-2xl p-12 text-center">
           <Search className="w-10 h-10 text-slate-600 mx-auto mb-4" />
           <p className="text-slate-400 font-semibold text-sm">No products match your search.</p>
@@ -147,15 +153,53 @@ export default function Favorites() {
       {filtered.length > 0 && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map(product => (
-            <PublishedProductCard key={product.id} product={product} navigate={navigate} />
+            <FavoriteProductCard 
+              key={product.id} 
+              product={product} 
+              navigate={navigate}
+              isFavorite={favorites.includes(product.id)}
+              onToggleFavorite={(e) => toggleFavorite(e, product.id)}
+              onShowQR={(e) => { e.stopPropagation(); setSelectedQRProduct(product); }}
+            />
           ))}
+        </div>
+      )}
+      {/* ── QR Modal ── */}
+      {selectedQRProduct && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={() => setSelectedQRProduct(null)}
+        >
+          <div 
+            className="bg-[#0a1523] border border-[#1e2e4f] p-8 rounded-3xl max-w-sm w-full relative flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setSelectedQRProduct(null)}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/20 flex items-center justify-center mx-auto mb-4">
+                <QrCode className="w-6 h-6 text-[#00F0FF]" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">{selectedQRProduct.name}</h3>
+              <p className="text-sm text-slate-400">Scan this QR code to view the product.</p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl shadow-xl">
+              <QRCodeSVG value={`${window.location.origin}/p/${selectedQRProduct.slug}`} size={200} />
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function PublishedProductCard({ product, navigate }) {
+function FavoriteProductCard({ product, navigate, isFavorite, onToggleFavorite, onShowQR }) {
   const hasThumbnail = !!product.thumbnail_url;
 
   return (
@@ -175,9 +219,13 @@ function PublishedProductCard({ product, navigate }) {
           </div>
         )}
 
-        {/* Published badge */}
-        <span className="absolute top-3 left-3 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border text-[#10b981] bg-[#10b981]/10 border-[#10b981]/25">
-          Live
+        {/* Published/Draft badge */}
+        <span className={`absolute top-3 left-3 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border ${
+          product.is_published 
+            ? 'text-[#10b981] bg-[#10b981]/10 border-[#10b981]/25'
+            : 'text-amber-400 bg-amber-400/10 border-amber-400/25'
+        }`}>
+          {product.is_published ? 'Live' : 'Draft'}
         </span>
 
         {/* View live button overlay */}
@@ -226,13 +274,31 @@ function PublishedProductCard({ product, navigate }) {
           <span className="text-[10px] text-slate-600 font-semibold">
             {product.brand || 'No brand'}
           </span>
-          <button
-            onClick={() => navigate(`/edit-product/${product.id}`)}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-[#1a263f] transition-all"
-            title="Edit product"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onToggleFavorite}
+              className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-rose-500 hover:bg-rose-500/10' : 'text-slate-500 hover:text-rose-400 hover:bg-[#1a263f]'}`}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
+            </button>
+            {product.is_published && product.slug && (
+              <button
+                onClick={onShowQR}
+                className="p-1.5 rounded-lg text-slate-500 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-all"
+                title="View QR Code"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              onClick={() => navigate(`/edit-product/${product.id}`)}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-[#1a263f] transition-all"
+              title="Edit product"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

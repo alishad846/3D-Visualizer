@@ -27,7 +27,7 @@
     "react-simple-maps": "^3.0.0",
     "recharts": "^3.8.1",
     "stats-gl": "^4.1.0",
-    "three": "^0.165.0",
+    "three": "^0.182.0",
     "zustand": "^4.5.7"
   },
   "devDependencies": {

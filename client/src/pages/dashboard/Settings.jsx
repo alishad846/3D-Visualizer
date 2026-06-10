@@ -11,8 +11,18 @@ import {
   Smartphone,
   Laptop,
   Check,
-  Edit2
+  Edit2,
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
+import { 
+  changePassword, 
+  updateTwoFactor, 
+  getSessions, 
+  logoutAllSessions, 
+  logoutSession 
+} from '../../api/auth';
 
 // Custom Toggle Component
 const Toggle = ({ enabled, onChange }) => (
@@ -107,17 +117,28 @@ export default function Settings() {
 
   // --- Security State ---
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [twoFactor, setTwoFactor] = useState(() => {
     return localStorage.getItem('scanvista-settings-2fa') === 'true';
   });
 
-  const [sessions, setSessions] = useState([
-    { id: 1, type: 'laptop', name: 'MacBook Pro - San Francisco, CA', browser: 'Chrome', time: 'Current Session', active: true },
-    { id: 2, type: 'phone', name: 'iPhone 15 Pro - New York, NY', browser: 'ScanVista Mobile App', time: '2 hours ago', active: false },
-    { id: 3, type: 'desktop', name: 'Workstation Desktop - London, UK', browser: 'Edge Browser', time: '3 days ago', active: false },
-  ]);
+  const [sessions, setSessions] = useState([]);
 
-  const handlePasswordUpdate = () => {
+  useEffect(() => {
+    if (activeTab === 'Security') {
+      getSessions()
+        .then(setSessions)
+        .catch(err => console.error('Failed to load sessions:', err));
+    }
+  }, [activeTab]);
+
+  const handlePasswordUpdate = async () => {
+    if (!passwords.current) {
+      showToast('Please enter your current password');
+      return;
+    }
     if (passwords.new !== passwords.confirm) {
       showToast('New passwords do not match!');
       return;
@@ -126,24 +147,44 @@ export default function Settings() {
       showToast('Password must be at least 8 characters!');
       return;
     }
-    showToast('Password updated successfully');
-    setPasswords({ current: '', new: '', confirm: '' });
+    try {
+      await changePassword(passwords.current, passwords.new);
+      showToast('Password updated successfully');
+      setPasswords({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      showToast(err.message || 'Failed to update password');
+    }
   };
 
-  const handleTwoFactorToggle = (val) => {
-    setTwoFactor(val);
-    localStorage.setItem('scanvista-settings-2fa', val);
-    showToast(`Two-Factor Auth ${val ? 'Enabled' : 'Disabled'}`);
+  const handleTwoFactorToggle = async (val) => {
+    try {
+      await updateTwoFactor(val);
+      setTwoFactor(val);
+      localStorage.setItem('scanvista-settings-2fa', val);
+      showToast(`Two-Factor Auth ${val ? 'Enabled' : 'Disabled'}`);
+    } catch (err) {
+      showToast(err.message || 'Failed to update 2FA');
+    }
   };
 
-  const logoutOtherSessions = () => {
-    setSessions(sessions.filter(s => s.active));
-    showToast('Logged out of all other sessions');
+  const logoutOtherSessions = async () => {
+    try {
+      await logoutAllSessions();
+      setSessions(sessions.filter(s => s.active));
+      showToast('Logged out of all other sessions');
+    } catch (err) {
+      showToast(err.message || 'Failed to logout sessions');
+    }
   };
 
-  const removeSession = (id) => {
-    setSessions(sessions.filter(s => s.id !== id));
-    showToast('Session revoked');
+  const removeSession = async (id) => {
+    try {
+      await logoutSession(id);
+      setSessions(sessions.filter(s => s.id !== id));
+      showToast('Session revoked');
+    } catch (err) {
+      showToast(err.message || 'Failed to revoke session');
+    }
   };
 
   // --- Preferences State ---
@@ -252,35 +293,62 @@ export default function Settings() {
         <div className="space-y-6 max-w-4xl">
           <div>
             <label className="block text-xs font-bold text-slate-400 mb-2">Current Password</label>
-            <input 
-              type="password" 
-              value={passwords.current}
-              onChange={(e) => setPasswords({...passwords, current: e.target.value})}
-              className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-              placeholder="••••••••••••"
-            />
+            <div className="relative">
+              <input 
+                type={showCurrentPassword ? "text" : "password"} 
+                value={passwords.current}
+                onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                placeholder="••••••••••••"
+              />
+              <button 
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              >
+                {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2">New Password</label>
-              <input 
-                type="password" 
-                value={passwords.new}
-                onChange={(e) => setPasswords({...passwords, new: e.target.value})}
-                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-                placeholder="••••••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showNewPassword ? "text" : "password"} 
+                  value={passwords.new}
+                  onChange={(e) => setPasswords({...passwords, new: e.target.value})}
+                  className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                  placeholder="••••••••••••"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2">Confirm New Password</label>
-              <input 
-                type="password" 
-                value={passwords.confirm}
-                onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
-                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-                placeholder="••••••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showConfirmPassword ? "text" : "password"} 
+                  value={passwords.confirm}
+                  onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                  className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                  placeholder="••••••••••••"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -343,7 +411,7 @@ export default function Settings() {
                 {session.type === 'desktop' && <Monitor className="text-slate-400 w-6 h-6" />}
                 <div>
                   <h4 className="text-sm font-bold text-white">{session.name}</h4>
-                  <p className="text-xs text-slate-400 mt-1">{session.browser} • {session.time}</p>
+                  <p className="text-xs text-slate-400 mt-1">{session.browser} • {session.ip_address} • {new Date(session.created_at).toLocaleString()}</p>
                 </div>
               </div>
               {session.active ? (

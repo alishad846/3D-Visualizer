@@ -26,6 +26,25 @@ const isValidEmail = (email) => {
   return re.test(email);
 };
 
+const getDeviceInfo = (req) => {
+  const ua = req.headers['user-agent'] || '';
+  let browser = 'Unknown Browser';
+  let os = 'Unknown OS';
+  if (ua.includes('Chrome')) browser = 'Chrome';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Edge')) browser = 'Edge';
+
+  if (ua.includes('Win')) os = 'Windows';
+  else if (ua.includes('Mac')) os = 'MacOS';
+  else if (ua.includes('X11') || ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  else if (ua.includes('Android')) os = 'Android';
+
+  const type = (os === 'iOS' || os === 'Android') ? 'phone' : 'desktop';
+  return { name: os, browser, type };
+};
+
 const isStrongPassword = (password) =>
   typeof password === 'string'
   && password.length >= 8
@@ -88,10 +107,13 @@ exports.register = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, refreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     // // 7. Set Refresh Token HTTP-only cookie
@@ -125,7 +147,7 @@ exports.login = async (req, res, next) => {
   try {
     // 1. Fetch user
     const userResult = await db.query(
-      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until
+      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until, two_factor_enabled
        FROM users
        WHERE email = $1`,
       [email]
@@ -209,10 +231,13 @@ exports.login = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, refreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     res.cookie('refreshToken', refreshToken, refreshCookieOptions());
@@ -420,10 +445,13 @@ exports.refresh = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, newRefreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, newRefreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     res.cookie('refreshToken', newRefreshToken, refreshCookieOptions());
@@ -475,3 +503,110 @@ exports.logout = async (req, res, next) => {
     next(error);
   }
 };
+
+// POST /api/auth/change-password
+exports.changePassword = async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.userId;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new passwords are required' });
+  }
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long and include an uppercase letter, a lowercase letter, and a number.' });
+  }
+
+  try {
+    const userResult = await db.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+    if (userResult.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, userResult.rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect current password' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
+
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/update-2fa
+exports.updateTwoFactor = async (req, res, next) => {
+  const { enabled } = req.body;
+  const userId = req.user.userId;
+
+  try {
+    await db.query('UPDATE users SET two_factor_enabled = $1 WHERE id = $2', [enabled, userId]);
+    return res.json({ success: true, two_factor_enabled: enabled });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/auth/sessions
+exports.getSessions = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { refreshToken } = req.cookies;
+  const currentHash = refreshToken ? hashRefreshToken(refreshToken) : null;
+
+  try {
+    const sessions = await db.query(
+      'SELECT id, token_hash, expires_at, created_at, device_info, ip_address FROM refresh_tokens WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+
+    const formattedSessions = sessions.rows.map(s => {
+      const isCurrent = s.token_hash === currentHash;
+      const device = s.device_info || {};
+      return {
+        id: s.id,
+        type: device.type || 'desktop',
+        name: device.name || 'Unknown Device',
+        browser: device.browser || 'Unknown Browser',
+        ip_address: s.ip_address,
+        created_at: s.created_at,
+        active: isCurrent
+      };
+    });
+
+    return res.json({ sessions: formattedSessions });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/sessions/logout-all
+exports.logoutAllSessions = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { refreshToken } = req.cookies;
+  const currentHash = refreshToken ? hashRefreshToken(refreshToken) : null;
+
+  try {
+    if (currentHash) {
+      await db.query('DELETE FROM refresh_tokens WHERE user_id = $1 AND token_hash != $2', [userId, currentHash]);
+    } else {
+      await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+    }
+    return res.json({ success: true, message: 'All other sessions logged out' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/sessions/:id/logout
+exports.logoutSession = async (req, res, next) => {
+  const userId = req.user.userId;
+  const sessionId = req.params.id;
+
+  try {
+    await db.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [sessionId, userId]);
+    return res.json({ success: true, message: 'Session logged out' });
+  } catch (error) {
+    next(error);
+  }
+};
+
