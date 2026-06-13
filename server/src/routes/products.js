@@ -16,6 +16,8 @@ const bulkUploadLimiter = rateLimit({
 router.use(auth);
 
 router.get('/', productController.getProducts);
+// Static routes MUST come before /:id param routes
+router.get('/trash', productController.getDeletedProducts);
 router.post('/bulk-upload/:projectId', bulkUploadLimiter, uploadCsv.single('file'), productController.bulkUploadProducts);
 router.post('/upload-asset', upload.single('file'), productController.uploadAsset);
 router.get('/incomplete/:projectId', productController.getIncompleteProducts);
@@ -24,5 +26,7 @@ router.post('/', productController.createProduct);
 router.patch('/:id/model', productController.attachProductModel);
 router.put('/:id', productController.updateProduct);
 router.post('/:id/publish', productController.publishProduct);
+router.post('/:id/restore', productController.restoreProduct);
+router.delete('/:id', productController.deleteProduct);
 
-module.exports = router;
+module.exports = router;

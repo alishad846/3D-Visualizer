@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { toggleTwoFactorSetting } from '../../api/auth';
 import { 
   User, 
   Shield, 
@@ -11,8 +12,12 @@ import {
   Smartphone,
   Laptop,
   Check,
-  Edit2
+  Edit2,
+  AlertTriangle
 } from 'lucide-react';
+import { useWorkspaceStore } from '../../store/workspaceStore';
+import { deleteProject } from '../../api/projects';
+import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
 
 // Custom Toggle Component
 const Toggle = ({ enabled, onChange }) => (
@@ -38,6 +43,23 @@ export default function Settings() {
   const user = useAuthStore((s) => s.user);
   const accessToken = useAuthStore((s) => s.accessToken);
   const setAuth = useAuthStore((s) => s.setAuth);
+
+  const activeProject = useWorkspaceStore((s) => s.activeProject);
+  const fetchProjects = useWorkspaceStore((s) => s.fetchProjects);
+  const [projectDeleteOpen, setProjectDeleteOpen] = useState(false);
+
+  const handleProjectDeleteConfirm = async () => {
+    if (!activeProject) return;
+    try {
+      await deleteProject(activeProject.id);
+      showToast(`Project "${activeProject.name}" has been deleted.`);
+      setProjectDeleteOpen(false);
+      await fetchProjects();
+      navigate('/dashboard');
+    } catch (err) {
+      showToast(err.message || 'Failed to delete project.');
+    }
+  };
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -108,8 +130,14 @@ export default function Settings() {
   // --- Security State ---
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
   const [twoFactor, setTwoFactor] = useState(() => {
-    return localStorage.getItem('scanvista-settings-2fa') === 'true';
+    return user?.two_factor_enabled || false;
   });
+
+  useEffect(() => {
+    if (user) {
+      setTwoFactor(!!user.two_factor_enabled);
+    }
+  }, [user]);
 
   const [sessions, setSessions] = useState([
     { id: 1, type: 'laptop', name: 'MacBook Pro - San Francisco, CA', browser: 'Chrome', time: 'Current Session', active: true },
@@ -130,10 +158,20 @@ export default function Settings() {
     setPasswords({ current: '', new: '', confirm: '' });
   };
 
-  const handleTwoFactorToggle = (val) => {
-    setTwoFactor(val);
-    localStorage.setItem('scanvista-settings-2fa', val);
-    showToast(`Two-Factor Auth ${val ? 'Enabled' : 'Disabled'}`);
+  const handleTwoFactorToggle = async (val) => {
+    try {
+      await toggleTwoFactorSetting(val);
+      setTwoFactor(val);
+      if (accessToken && typeof setAuth === 'function') {
+        setAuth(accessToken, {
+          ...user,
+          two_factor_enabled: val
+        });
+      }
+      showToast(`Two-Factor Auth ${val ? 'Enabled' : 'Disabled'}`);
+    } catch (err) {
+      showToast(err.message || 'Failed to toggle 2FA');
+    }
   };
 
   const logoutOtherSessions = () => {
@@ -430,6 +468,52 @@ export default function Settings() {
     </div>
   );
 
+  const renderProjectTab = () => (
+    <div className="animate-fade-in space-y-12">
+      <div>
+        <h2 className="text-3xl font-black text-white font-display flex items-center gap-3">
+          <SettingsIcon className="text-[#00F0FF] w-6 h-6" /> Project Settings
+        </h2>
+        <p className="text-xs text-slate-500 mt-2">Manage settings and lifecycle of the active workspace.</p>
+      </div>
+
+      {/* Project details card */}
+      <div className="bg-[#0b101e] border border-white/5 rounded-2xl p-8 max-w-4xl space-y-6">
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Project Name</label>
+          <div className="w-full bg-[#131929] border border-white/5 text-slate-300 font-bold rounded-xl px-4 py-3.5 select-none">
+            {activeProject.name}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Project Description</label>
+          <div className="w-full bg-[#131929] border border-white/5 text-slate-300 font-medium rounded-xl px-4 py-3.5 min-h-[80px] select-none">
+            {activeProject.description || 'No description provided.'}
+          </div>
+        </div>
+      </div>
+
+      {/* Danger Zone */}
+      <div className="bg-[#1c0d12] border border-rose-500/10 rounded-2xl p-8 max-w-4xl space-y-4">
+        <div className="flex items-center gap-3 text-rose-400">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <h3 className="text-lg font-bold font-display uppercase tracking-wide">Danger Zone</h3>
+        </div>
+        <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
+          Deleting this project will soft-delete the project and all of its associated products. Scanning their QR codes will immediately display a product unavailable error page. You can restore this project and its assets within 7 days, after which they will be permanently purged.
+        </p>
+        <div className="pt-2">
+          <button
+            onClick={() => setProjectDeleteOpen(true)}
+            className="bg-rose-600/10 border border-rose-500/25 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 font-black py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition-all"
+          >
+            Delete Project
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
 
   // --- Main Layout ---
   return (
@@ -457,6 +541,17 @@ export default function Settings() {
           >
             <User className="w-4 h-4" /> Profile
           </button>
+
+          {activeProject && (
+            <button 
+              onClick={() => setActiveTab('Project')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'Project' ? 'bg-[#212c41] text-[#00F0FF]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              }`}
+            >
+              <SettingsIcon className="w-4 h-4" /> Project Settings
+            </button>
+          )}
           
           <button 
             onClick={() => setActiveTab('Security')}
@@ -492,8 +587,16 @@ export default function Settings() {
         {activeTab === 'Profile' && renderProfileTab()}
         {activeTab === 'Security' && renderSecurityTab()}
         {activeTab === 'Preferences' && renderPreferencesTab()}
+        {activeTab === 'Project' && activeProject && renderProjectTab()}
       </div>
 
+      <DeleteConfirmModal
+        isOpen={projectDeleteOpen}
+        onClose={() => setProjectDeleteOpen(false)}
+        onConfirm={handleProjectDeleteConfirm}
+        itemName={activeProject ? activeProject.name : ''}
+        itemType="project"
+      />
     </div>
   );
 }

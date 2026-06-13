@@ -19,7 +19,10 @@ import {
   LogOut,
   ChevronDown,
   UploadCloud,
+  Trash2,
 } from 'lucide-react';
+import { fetchDeletedProjects } from '../../api/projects';
+import { fetchDeletedProducts } from '../../api/products';
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -42,10 +45,18 @@ export default function DashboardLayout() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
+
+  // Fetch trash count to show badge
+  useEffect(() => {
+    Promise.all([fetchDeletedProjects(), fetchDeletedProducts()])
+      .then(([proj, prod]) => setTrashCount(proj.length + prod.length))
+      .catch(() => {}); // silent fail — badge is cosmetic
+  }, []);
 
   const displayName = user?.name || 'User';
   const displayEmail = user?.email || '';
@@ -63,6 +74,7 @@ export default function DashboardLayout() {
     { icon: Layers, label: 'Products', path: '/dashboard/products' },
     { icon: UploadCloud, label: 'Incomplete Models', path: '/dashboard/incomplete-models' },
     { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
+    { icon: Trash2, label: 'Trash', path: '/dashboard/trash', badge: trashCount },
   ];
   const isProductAnalysisActive = location.pathname === '/dashboard/analytics';
 
@@ -104,7 +116,12 @@ export default function DashboardLayout() {
                   )}
                   <item.icon className={`w-[18px] h-[18px] transition-colors ${isActive ? 'text-[#00F0FF]' : 'text-slate-400 group-hover:text-slate-200'
                     }`} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full leading-none">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -263,7 +280,12 @@ export default function DashboardLayout() {
                         <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
                       )}
                       <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-[#00F0FF]' : 'text-slate-400'}`} />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge > 0 && (
+                        <span className="text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full leading-none">
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -410,6 +432,7 @@ export default function DashboardLayout() {
               {location.pathname === '/dashboard' && 'Creator Side'}
               {location.pathname === '/dashboard/analytics' && 'Product Analysis'}
               {location.pathname === '/dashboard/analytics/project' && 'Project Analysis'}
+              {location.pathname === '/dashboard/trash' && 'Recently Deleted'}
             </h1>
 
             {/* WORKSPACE SWITCHER */}

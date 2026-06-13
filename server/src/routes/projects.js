@@ -8,5 +8,10 @@ router.use(auth);
 
 router.post('/', projectController.createProject);
 router.get('/my', projectController.getMyProjects);
+router.get('/trash', projectController.getDeletedProjects);
+router.get('/:id/restore-preflight', projectController.getRestorePreflight);
+router.post('/:id/restore', projectController.restoreProject);
+router.delete('/:id', projectController.deleteProject);
 
-module.exports = router;
+module.exports = router;
+

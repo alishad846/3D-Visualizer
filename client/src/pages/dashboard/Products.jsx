@@ -5,8 +5,10 @@ import {
   Search, Grid, List, Plus, Box,
   Edit3, ExternalLink, ChevronLeft, ChevronRight,
   Package, FolderOpen, CheckCircle2, Clock, UploadCloud,
-  ChevronDown
+  ChevronDown, Trash2
 } from 'lucide-react';
+import { deleteProduct } from '../../api/products';
+import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
@@ -40,6 +42,21 @@ export default function Products() {
   const [viewMode, setViewMode] = useState('grid');
   const [page, setPage] = useState(1);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
+
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+    try {
+      await deleteProduct(productToDelete.id);
+      useWorkspaceStore.getState().fetchProductsForActiveProject(activeProject.id);
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
+    } catch (error) {
+      alert(error.message || 'Failed to delete product.');
+    }
+  };
 
   // Derive unique categories from real data only
   const categories = useMemo(() => {
@@ -345,7 +362,15 @@ export default function Products() {
       {viewMode === 'grid' && paged.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {paged.map(product => (
-            <ProductCard key={product.id} product={product} navigate={navigate} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              navigate={navigate}
+              onDelete={() => {
+                setProductToDelete(product);
+                setDeleteModalOpen(true);
+              }}
+            />
           ))}
           {/* Dashed "Add Product" card — always last in the grid */}
           <button
@@ -379,7 +404,15 @@ export default function Products() {
             </thead>
             <tbody>
               {paged.map(product => (
-                <ProductListRow key={product.id} product={product} navigate={navigate} />
+                <ProductListRow
+                  key={product.id}
+                  product={product}
+                  navigate={navigate}
+                  onDelete={() => {
+                    setProductToDelete(product);
+                    setDeleteModalOpen(true);
+                  }}
+                />
               ))}
             </tbody>
           </table>
@@ -413,6 +446,17 @@ export default function Products() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        itemName={productToDelete ? productToDelete.name : ''}
+        itemType="product"
+      />
     </div>
   );
 }
@@ -458,7 +502,7 @@ function relativeTimeInternal(dateStr) {
   return relativeTime(dateStr);
 }
 
-function ProductCard({ product, navigate }) {
+function ProductCard({ product, navigate, onDelete }) {
   const isPublished = product.is_published;
   const hasModel = !!product.model_url;
   const hasThumbnail = !!product.thumbnail_url;
@@ -528,6 +572,13 @@ function ProductCard({ product, navigate }) {
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+              title="Delete product"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
             {isPublished && product.slug && (
               <a
                 href={`/p/${product.slug}`}
@@ -546,7 +597,7 @@ function ProductCard({ product, navigate }) {
   );
 }
 
-function ProductListRow({ product, navigate }) {
+function ProductListRow({ product, navigate, onDelete }) {
   const isPublished = product.is_published;
   return (
     <tr className="border-b border-[#16223b]/50 hover:bg-[#11192b]/40 transition-all">
@@ -593,6 +644,13 @@ function ProductListRow({ product, navigate }) {
             title="Edit"
           >
             <Edit3 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
           {isPublished && product.slug && (
             <a

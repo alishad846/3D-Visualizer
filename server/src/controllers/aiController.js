@@ -22,7 +22,7 @@ exports.processAssistantQuery = async (req, res, next) => {
     // 1. Resolve slug to UUID if necessary
     if (!isUuid(productId)) {
       const slugRes = await db.query(
-        'SELECT id FROM products WHERE slug = $1 AND is_published = true',
+        'SELECT id FROM products WHERE slug = $1 AND is_published = true AND status = \'active\'',
         [productId]
       );
       if (slugRes.rowCount === 0) {

@@ -18,6 +18,7 @@ import ProjectView     from "./pages/dashboard/ProjectView";
 import Favorites       from "./pages/dashboard/Favorites";
 import Analytics       from "./pages/dashboard/Analytics";
 import ProjectAnalytics from "./pages/dashboard/ProjectAnalytics";
+import Trash           from "./pages/dashboard/Trash";
 import Landing         from "./pages/LandingHome";
 import ProductSuccess  from "./pages/product/ProductSuccess";
 import ScannedProductUI from "./pages/product/ScannedProductUI";
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="settings"          element={<Settings />} />
             <Route path="project-view"      element={<ProjectView />} />
             <Route path="favorites"         element={<Favorites />} />
+            <Route path="trash"             element={<Trash />} />
           </Route>
 
           {/* These pages have their OWN full-page layout (sidebar + form)

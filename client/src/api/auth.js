@@ -54,3 +54,24 @@ export async function logoutUser() {
     // Cookie-only logout should not block local auth cleanup.
   }
 }
+
+export async function verifyTwoFactor({ userId, code }) {
+  const res = await publicRequest('/auth/verify-2fa', {
+    method: 'POST',
+    body: JSON.stringify({ userId, code }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Two-Factor Verification failed');
+  return data;
+}
+
+export async function toggleTwoFactorSetting(enabled) {
+  const { authRequest } = await import('./client');
+  const res = await authRequest('/auth/two-factor', {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to toggle Two-Factor Authentication');
+  return data;
+}

@@ -19,6 +19,7 @@ const {
   createAndSendResetToken,
   cleanupResetTokens,
 } = require('../services/passwordResetService');
+const { sendTwoFactorCodeEmail } = require('../services/mailService');
 
 // Helper to validate email format
 const isValidEmail = (email) => {
@@ -66,7 +67,7 @@ exports.register = async (req, res, next) => {
     const insertResult = await db.query(
       `INSERT INTO users (name, email, password_hash, preferred_language)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, preferred_language`,
+       RETURNING id, name, email, preferred_language, two_factor_enabled`,
       [name.trim(), email, passwordHash, 'en']
     );
     const user = insertResult.rows[0];
@@ -125,7 +126,7 @@ exports.login = async (req, res, next) => {
   try {
     // 1. Fetch user
     const userResult = await db.query(
-      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until
+      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until, two_factor_enabled
        FROM users
        WHERE email = $1`,
       [email]
@@ -189,6 +190,46 @@ exports.login = async (req, res, next) => {
       [user.id]
     );
 
+    // 2.5 Check if Two-Factor Authentication is enabled
+    if (user.two_factor_enabled) {
+      // Generate a 6-character alphanumeric captcha (capital letters and numbers)
+      const generateCaptcha = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      };
+
+      const captchaCode = generateCaptcha();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+      // Save the code in two_factor_codes table
+      await db.query(
+        `INSERT INTO two_factor_codes (user_id, code, expires_at)
+         VALUES ($1, $2, $3)`,
+        [user.id, captchaCode, expiresAt]
+      );
+
+      // Send email containing the captcha
+      try {
+        await sendTwoFactorCodeEmail({
+          to: user.email,
+          code: captchaCode,
+          expiryMinutes: 5
+        });
+      } catch (mailError) {
+        console.error('Failed to send 2FA verification email:', mailError.message);
+      }
+
+      // Return response indicating 2FA is required
+      return res.status(200).json({
+        requires2FA: true,
+        userId: user.id
+      });
+    }
+
     // 3. Revoke all existing refresh tokens for this user before issuing new ones (Clean Sessions)
     await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
 
@@ -222,7 +263,8 @@ exports.login = async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
-      preferred_language: user.preferred_language
+      preferred_language: user.preferred_language,
+      two_factor_enabled: user.two_factor_enabled
     };
 
     return res.json({
@@ -395,7 +437,7 @@ exports.refresh = async (req, res, next) => {
 
     // Fetch user details for access token payload and return block
     const userResult = await db.query(
-      'SELECT id, name, email, preferred_language FROM users WHERE id = $1',
+      'SELECT id, name, email, preferred_language, two_factor_enabled FROM users WHERE id = $1',
       [userId]
     );
     if (userResult.rowCount === 0) {
@@ -471,6 +513,134 @@ exports.logout = async (req, res, next) => {
 
     res.clearCookie('refreshToken', clearRefreshCookieOptions());
     return res.status(200).json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/verify-2fa
+exports.verify2FA = async (req, res, next) => {
+  const { userId, code } = req.body;
+
+  if (!userId || !code) {
+    return res.status(400).json({ error: 'User ID and verification code are required' });
+  }
+
+  try {
+    // 1. Fetch user details
+    const userResult = await db.query(
+      `SELECT id, name, email, preferred_language, two_factor_enabled FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+
+    // 2. Fetch the latest unused active code for this user
+    const codeResult = await db.query(
+      `SELECT id, code, expires_at, used
+       FROM two_factor_codes
+       WHERE user_id = $1 AND used = FALSE
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (codeResult.rowCount === 0) {
+      return res.status(401).json({ error: 'No verification code found. Please request a new one.' });
+    }
+
+    const verificationRecord = codeResult.rows[0];
+
+    // 3. Check code match (case-sensitive as specified by capital letters requirement)
+    if (verificationRecord.code !== code.trim()) {
+      return res.status(401).json({ error: 'Incorrect verification code.' });
+    }
+
+    // 4. Check expiration
+    if (new Date(verificationRecord.expires_at) < new Date()) {
+      return res.status(401).json({ error: 'Verification code has expired. Please try again.' });
+    }
+
+    // 5. Mark code as used
+    await db.query(
+      `UPDATE two_factor_codes SET used = TRUE WHERE id = $1`,
+      [verificationRecord.id]
+    );
+
+    // 6. Generate Tokens
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    // Clean sessions: revoke existing refresh tokens
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+
+    await db.query(
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3)`,
+      [user.id, refreshTokenHash, expiresAt]
+    );
+
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
+
+    return res.json({
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        preferred_language: user.preferred_language,
+        two_factor_enabled: user.two_factor_enabled
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/auth/two-factor
+exports.toggleTwoFactor = async (req, res, next) => {
+  const { enabled } = req.body;
+  const userId = req.user?.userId || req.user?.id; // Allow either decoded token structure
+
+  if (typeof enabled !== 'boolean') {
+    return res.status(400).json({ error: 'Invalid parameter. Enabled must be a boolean.' });
+  }
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized.' });
+  }
+
+  try {
+    await db.query(
+      `UPDATE users
+       SET two_factor_enabled = $1,
+           updated_at = NOW()
+       WHERE id = $2`,
+      [enabled, userId]
+    );
+
+    return res.json({
+      success: true,
+      message: `Two-Factor Authentication has been successfully ${enabled ? 'enabled' : 'disabled'}.`,
+      two_factor_enabled: enabled
+    });
   } catch (error) {
     next(error);
   }

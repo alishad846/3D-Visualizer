@@ -52,7 +52,7 @@ class RecommendService {
     if (isUuid(productIdOrSlug)) return productIdOrSlug;
 
     const result = await db.query(
-      'SELECT id FROM products WHERE slug = $1 AND is_published = true',
+      'SELECT id FROM products WHERE slug = $1 AND is_published = true AND status = \'active\'',
       [productIdOrSlug]
     );
 
@@ -67,7 +67,7 @@ class RecommendService {
       `SELECT id, name, tagline, description, category, brand, features, specs, price, currency,
               thumbnail_url, gallery_urls, buy_url
        FROM products
-       WHERE id = $1 AND is_published = true`,
+       WHERE id = $1 AND is_published = true AND status = 'active'`,
       [productId]
     );
 
@@ -112,7 +112,7 @@ class RecommendService {
               (pe.embedding <=> target.embedding) AS recommendation_distance
        FROM target
        JOIN product_embeddings pe ON pe.embedding IS NOT NULL
-       JOIN products p ON p.id = pe.product_id
+       JOIN products p ON p.id = pe.product_id AND p.status = 'active'
        WHERE p.id <> $1
        AND p.is_published = true
        ORDER BY pe.embedding <=> target.embedding
@@ -136,7 +136,8 @@ class RecommendService {
       `SELECT id, category, brand, price
        FROM products
        WHERE id = $1
-       AND is_published = true`,
+       AND is_published = true
+       AND status = 'active'`,
       [productId]
     );
 
@@ -163,6 +164,7 @@ class RecommendService {
        FROM products p
        WHERE p.id <> $1
        AND p.is_published = true
+       AND p.status = 'active'
        ORDER BY recommendation_score DESC, p.updated_at DESC
        LIMIT $5`,
       [current.id, current.category, current.brand, current.price, limit]
@@ -179,7 +181,7 @@ class RecommendService {
     const result = await db.query(
       `SELECT ${PRODUCT_FIELDS_FOR_EMBEDDING}
        FROM products
-       WHERE id = $1`,
+       WHERE id = $1 AND status = 'active'`,
       [productId]
     );
 

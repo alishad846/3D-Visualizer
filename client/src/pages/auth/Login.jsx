@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { View, ArrowLeft } from 'lucide-react';
+import { View, ArrowLeft, Shield } from 'lucide-react';
 import SphereLogo from '../../components/SphereLogo';
-import { loginUser } from '../../api/auth';
+import { loginUser, verifyTwoFactor } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 
 export default function Login() {
@@ -13,6 +13,9 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [show2FA, setShow2FA] = useState(false);
+  const [captchaCode, setCaptchaCode] = useState('');
+  const [tempUserId, setTempUserId] = useState('');
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,10 +23,30 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await loginUser({ email, password });
+      if (data.requires2FA) {
+        setTempUserId(data.userId);
+        setShow2FA(true);
+      } else {
+        setAuth(data.accessToken, data.user);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await verifyTwoFactor({ userId: tempUserId, code: captchaCode });
       setAuth(data.accessToken, data.user);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Invalid credentials');
+      setError(err.message || 'Verification failed');
     } finally {
       setLoading(false);
     }
@@ -67,16 +90,18 @@ export default function Login() {
         </button>
 
         {/* Toggle Switch */}
-        <div className="absolute top-8 right-8 sm:top-12 sm:right-12 flex items-center gap-3 text-sm font-medium">
-          <span className="text-[#00F0FF]">Login</span>
-          <button 
-            onClick={() => navigate('/register')} 
-            className="w-12 h-6 bg-[#333] rounded-full relative flex items-center cursor-pointer transition-colors hover:bg-[#444]"
-          >
-            <div className="w-5 h-5 bg-[#00F0FF] rounded-full absolute left-0.5 shadow-[0_0_10px_rgba(0,240,255,0.4)] transition-all"></div>
-          </button>
-          <span className="text-[#888] hover:text-white cursor-pointer transition-colors" onClick={() => navigate('/register')}>Register</span>
-        </div>
+        {!show2FA && (
+          <div className="absolute top-8 right-8 sm:top-12 sm:right-12 flex items-center gap-3 text-sm font-medium">
+            <span className="text-[#00F0FF]">Login</span>
+            <button 
+              onClick={() => navigate('/register')} 
+              className="w-12 h-6 bg-[#333] rounded-full relative flex items-center cursor-pointer transition-colors hover:bg-[#444]"
+            >
+              <div className="w-5 h-5 bg-[#00F0FF] rounded-full absolute left-0.5 shadow-[0_0_10px_rgba(0,240,255,0.4)] transition-all"></div>
+            </button>
+            <span className="text-[#888] hover:text-white cursor-pointer transition-colors" onClick={() => navigate('/register')}>Register</span>
+          </div>
+        )}
 
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -84,58 +109,118 @@ export default function Login() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="w-full max-w-sm"
         >
-          <h2 className="text-3xl font-display font-medium mb-10 text-center tracking-tight">Welcome Back</h2>
-              
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-5">
-              <div>
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email Address" 
-                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                />
+          {show2FA ? (
+            <div className="space-y-6">
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-[#00F0FF]/10 rounded-full flex items-center justify-center mb-4 border border-[#00F0FF]/25 shadow-[0_0_15px_rgba(0,240,255,0.1)]">
+                  <Shield className="w-8 h-8 text-[#00F0FF]" />
+                </div>
+                <h2 className="text-2xl font-display font-medium text-white mb-2">Verification Required</h2>
+                <p className="text-sm text-[#A0A0A0] max-w-xs leading-relaxed">
+                  We've sent a 6-character captcha code to your email. Please enter it below.
+                </p>
               </div>
+
+              <form onSubmit={handle2FAVerify} className="space-y-6">
+                <div>
+                  <input 
+                    type="text" 
+                    required
+                    value={captchaCode}
+                    onChange={(e) => setCaptchaCode(e.target.value.toUpperCase())}
+                    placeholder="ENTER CODE" 
+                    maxLength={6}
+                    className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-center text-xl font-mono tracking-[0.5em] uppercase focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#444] placeholder:font-sans placeholder:tracking-normal placeholder:text-sm"
+                  />
+                </div>
+
+                {error && (
+                  <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  <button 
+                    type="submit" 
+                    disabled={loading}
+                    className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span className="text-[15px]">Verify & Sign In</span>
+                    )}
+                  </button>
+
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShow2FA(false);
+                      setError('');
+                      setCaptchaCode('');
+                    }}
+                    className="w-full bg-transparent border border-[#3A3B40] hover:border-white text-white font-medium py-3.5 rounded-xl text-sm transition-colors"
+                  >
+                    Back to Login
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-3xl font-display font-medium mb-10 text-center tracking-tight">Welcome Back</h2>
+                  
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div className="space-y-5">
+                  <div>
+                    <input 
+                      type="email" 
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Email Address" 
+                      className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                    />
+                  </div>
+                  
+                  <div>
+                    <input 
+                      type="password" 
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password" 
+                      className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end text-xs">
+                  <Link to="/forgot-password" className="text-[#A0A0A0] hover:text-white transition-colors">Forgot password?</Link>
+                </div>
+
+                {error && (
+                  <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={loading}
+                  className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <span className="text-[15px]">Sign In</span>
+                  )}
+                </button>
+              </form>
               
-              <div>
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password" 
-                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end text-xs">
-              <Link to="/forgot-password" className="text-[#A0A0A0] hover:text-white transition-colors">Forgot password?</Link>
-            </div>
-
-            {error && (
-              <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="text-[15px]">Sign In</span>
-              )}
-            </button>
-          </form>
-          
-          <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
-            Don't have an account?{' '}
-            <Link to="/register" className="text-white hover:text-[#00F0FF] transition-colors font-medium">Register</Link>
-          </p>
+              <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
+                Don't have an account?{' '}
+                <Link to="/register" className="text-white hover:text-[#00F0FF] transition-colors font-medium">Register</Link>
+              </p>
+            </>
+          )}
         </motion.div>
       </div>
     </div>

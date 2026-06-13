@@ -17,6 +17,9 @@ const recommendationRoutes = require('./routes/recommendations');
 const { errorHandler } = require('./middleware/errorHandler');
 const { rateLimiter } = require('./middleware/rateLimiter');
 
+// Register background jobs
+require('./services/purgeService');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
