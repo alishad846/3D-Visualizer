@@ -58,7 +58,7 @@ export default function ScannedProductUI() {
 
   return (
     <div className="relative min-h-screen bg-[#03060a] text-white overflow-hidden font-sans selection:bg-[#00F0FF]/30">
-      
+
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/10 blur-[150px] rounded-full mix-blend-screen animate-pulse" />
@@ -68,7 +68,7 @@ export default function ScannedProductUI() {
 
       {/* Top Navbar */}
       <nav className="relative z-50 px-6 py-6 flex items-center justify-between backdrop-blur-sm border-b border-white/5">
-        <motion.button 
+        <motion.button
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={() => navigate('/scan')}
@@ -77,7 +77,7 @@ export default function ScannedProductUI() {
           <ArrowLeft className="w-5 h-5 text-slate-300 group-hover:text-white transition-colors" />
         </motion.button>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex flex-col items-center"
@@ -88,7 +88,7 @@ export default function ScannedProductUI() {
         </motion.div>
 
         <div className="flex items-center gap-3">
-          <motion.button 
+          <motion.button
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             onClick={() => setShowQR(true)}
@@ -97,7 +97,7 @@ export default function ScannedProductUI() {
             <QrCode className="w-5 h-5 text-slate-300 group-hover:text-[#00F0FF]" />
           </motion.button>
 
-          <motion.button 
+          <motion.button
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             className="w-12 h-12 rounded-full glass-panel flex items-center justify-center hover:bg-white/10 transition-all border border-white/10 group"
@@ -108,25 +108,25 @@ export default function ScannedProductUI() {
       </nav>
 
       {/* Main Content Split Layout */}
-      <div className="relative z-10 flex flex-col lg:flex-row h-[calc(100vh-100px)] max-w-[1600px] mx-auto">
-        
+      <div className="relative z-10 flex flex-col-reverse lg:flex-row h-[calc(100vh-100px)] max-w-[1600px] mx-auto overflow-y-auto lg:overflow-hidden">
+
         {/* Left Side: Product Information */}
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="w-full lg:w-[40%] p-8 lg:p-12 flex flex-col justify-center overflow-y-auto hide-scrollbar"
+          className="w-full lg:w-[40%] p-6 lg:p-12 flex flex-col justify-center overflow-y-visible lg:overflow-y-auto hide-scrollbar shrink-0"
         >
           <motion.div variants={itemVariants} className="mb-2">
             <span className="text-[#00F0FF] font-bold tracking-widest uppercase text-xs flex items-center gap-2">
               <Hexagon className="w-4 h-4" /> {product.brand}
             </span>
           </motion.div>
-          
-          <motion.h1 variants={itemVariants} className="text-5xl lg:text-7xl font-display font-bold leading-tight mb-4 text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-500">
+
+          <motion.h1 variants={itemVariants} className="text-4xl lg:text-7xl font-display font-bold leading-tight mb-4 text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-500">
             {product.name}
           </motion.h1>
-          
+
           <motion.div variants={itemVariants} className="text-3xl font-light text-slate-300 mb-8">
             {product.price}
           </motion.div>
@@ -155,23 +155,23 @@ export default function ScannedProductUI() {
         </motion.div>
 
         {/* Right Side: 3D Interactive Canvas */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.3, ease: "easeOut" }}
-          className="w-full lg:w-[60%] h-[50vh] lg:h-full relative flex items-center justify-center p-4 lg:p-12"
+          className="w-full lg:w-[60%] h-[55vh] min-h-[400px] lg:min-h-0 lg:h-full relative flex items-center justify-center p-4 lg:p-12 shrink-0"
         >
           {/* Glass framing for the 3D viewer */}
-          <div 
+          <div
             ref={canvasContainerRef}
             className="absolute inset-4 lg:inset-12 border border-white/10 bg-white/[0.02] backdrop-blur-3xl rounded-[40px] overflow-hidden shadow-2xl"
           >
-            
+
             <ProductCanvas modelUrl="/models/headphone.glb" autoRotate={true} />
 
             {/* Floating UI on top of 3D Canvas */}
             <div className="absolute bottom-8 right-8 flex flex-col gap-3">
-              <button 
+              <button
                 onClick={toggleFullscreen}
                 className="w-12 h-12 bg-black/60 backdrop-blur-md border border-white/20 rounded-2xl flex items-center justify-center hover:bg-[#00F0FF]/20 hover:border-[#00F0FF] transition-all group shadow-lg"
               >
@@ -182,7 +182,7 @@ export default function ScannedProductUI() {
                 )}
               </button>
             </div>
-            
+
             <div className="absolute top-8 right-8">
               <button className="px-6 py-3 bg-black/60 backdrop-blur-md border border-white/20 rounded-full flex items-center gap-2 hover:bg-[#00F0FF]/20 hover:border-[#00F0FF] hover:text-[#00F0FF] transition-all font-bold text-xs uppercase tracking-widest shadow-lg">
                 <View className="w-4 h-4" /> View in AR
@@ -192,7 +192,7 @@ export default function ScannedProductUI() {
             <div className="absolute bottom-8 left-8 bg-black/60 backdrop-blur-md border border-white/20 rounded-full px-4 py-2 text-[10px] font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00F0FF] animate-pulse" /> 3D Interactive
             </div>
-            
+
           </div>
         </motion.div>
       </div>
@@ -200,25 +200,25 @@ export default function ScannedProductUI() {
       {/* QR Code Modal */}
       <AnimatePresence>
         {showQR && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           >
-            <motion.div 
+            <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
               className="bg-[#0a1523] border border-white/10 p-8 rounded-3xl max-w-sm w-full relative flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]"
             >
-              <button 
+              <button
                 onClick={() => setShowQR(false)}
                 className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
               >
                 <X className="w-4 h-4" />
               </button>
-              
+
               <div className="text-center mb-6">
                 <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/20 flex items-center justify-center mx-auto mb-4">
                   <QrCode className="w-6 h-6 text-[#00F0FF]" />

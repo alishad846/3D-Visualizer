@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { toggleTwoFactorSetting } from '../../api/auth';
+import { useSettingsStore } from '../../store/settingsStore';
 import { 
   User, 
   Shield, 
@@ -13,11 +13,18 @@ import {
   Laptop,
   Check,
   Edit2,
-  AlertTriangle
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import { useWorkspaceStore } from '../../store/workspaceStore';
-import { deleteProject } from '../../api/projects';
-import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
+import { 
+  changePassword, 
+  updateTwoFactor, 
+  getSessions, 
+  logoutAllSessions, 
+  logoutSession,
+  updateProfile
+} from '../../api/auth';
 
 // Custom Toggle Component
 const Toggle = ({ enabled, onChange }) => (
@@ -44,23 +51,6 @@ export default function Settings() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  const activeProject = useWorkspaceStore((s) => s.activeProject);
-  const fetchProjects = useWorkspaceStore((s) => s.fetchProjects);
-  const [projectDeleteOpen, setProjectDeleteOpen] = useState(false);
-
-  const handleProjectDeleteConfirm = async () => {
-    if (!activeProject) return;
-    try {
-      await deleteProject(activeProject.id);
-      showToast(`Project "${activeProject.name}" has been deleted.`);
-      setProjectDeleteOpen(false);
-      await fetchProjects();
-      navigate('/dashboard');
-    } catch (err) {
-      showToast(err.message || 'Failed to delete project.');
-    }
-  };
-
   const showToast = (message) => {
     setToastMessage(message);
     setTimeout(() => setToastMessage(''), 3000);
@@ -69,51 +59,39 @@ export default function Settings() {
   const profileAvatar = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Creator')}&background=0b101e&color=00F0FF&bold=true&size=200`;
 
   // --- Profile State ---
-  const [profileData, setProfileData] = useState(() => {
-    const saved = localStorage.getItem('scanvista-settings-profile');
-    return saved ? JSON.parse(saved) : {
-      fullName: user?.name || 'Creator',
-      email: user?.email || 'you@domain.com',
-      avatar: profileAvatar
-    };
+  const [profileData, setProfileData] = useState({
+    fullName: user?.name || 'Creator',
+    email: user?.email || '',
+    avatar: profileAvatar
   });
   
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('scanvista-settings-profile');
-    if (saved) {
-      setProfileData(JSON.parse(saved));
-      return;
-    }
-
     if (user) {
       setProfileData({
         fullName: user.name || 'Creator',
-        email: user.email || 'you@domain.com',
+        email: user.email || '',
         avatar: user.avatar || profileAvatar
       });
     }
-  }, [user]);
+  }, [user, profileAvatar]);
 
-  const handleProfileSave = () => {
-    localStorage.setItem('scanvista-settings-profile', JSON.stringify(profileData));
-    if (accessToken && typeof setAuth === 'function') {
-      const updatedUser = user
-        ? {
-            ...user,
-            name: profileData.fullName,
-            email: profileData.email,
-            avatar: profileData.avatar,
-          }
-        : {
-            name: profileData.fullName,
-            email: profileData.email,
-            avatar: profileData.avatar,
-          };
-      setAuth(accessToken, updatedUser);
+  const handleProfileSave = async () => {
+    try {
+      const data = await updateProfile({
+        name: profileData.fullName,
+        email: profileData.email,
+        avatar: profileData.avatar
+      });
+      
+      if (accessToken && typeof setAuth === 'function') {
+        setAuth(accessToken, data.user);
+      }
+      showToast('Profile updated permanently in database!');
+    } catch (err) {
+      showToast(err.message || 'Failed to update profile');
     }
-    showToast('Profile updated successfully');
   };
 
   const handleAvatarChange = (e) => {
@@ -129,23 +107,28 @@ export default function Settings() {
 
   // --- Security State ---
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [twoFactor, setTwoFactor] = useState(() => {
-    return user?.two_factor_enabled || false;
+    return localStorage.getItem('scanvista-settings-2fa') === 'true';
   });
 
+  const [sessions, setSessions] = useState([]);
+
   useEffect(() => {
-    if (user) {
-      setTwoFactor(!!user.two_factor_enabled);
+    if (activeTab === 'Security') {
+      getSessions()
+        .then(setSessions)
+        .catch(err => console.error('Failed to load sessions:', err));
     }
-  }, [user]);
+  }, [activeTab]);
 
-  const [sessions, setSessions] = useState([
-    { id: 1, type: 'laptop', name: 'MacBook Pro - San Francisco, CA', browser: 'Chrome', time: 'Current Session', active: true },
-    { id: 2, type: 'phone', name: 'iPhone 15 Pro - New York, NY', browser: 'ScanVista Mobile App', time: '2 hours ago', active: false },
-    { id: 3, type: 'desktop', name: 'Workstation Desktop - London, UK', browser: 'Edge Browser', time: '3 days ago', active: false },
-  ]);
-
-  const handlePasswordUpdate = () => {
+  const handlePasswordUpdate = async () => {
+    if (!passwords.current) {
+      showToast('Please enter your current password');
+      return;
+    }
     if (passwords.new !== passwords.confirm) {
       showToast('New passwords do not match!');
       return;
@@ -154,52 +137,49 @@ export default function Settings() {
       showToast('Password must be at least 8 characters!');
       return;
     }
-    showToast('Password updated successfully');
-    setPasswords({ current: '', new: '', confirm: '' });
+    try {
+      await changePassword(passwords.current, passwords.new);
+      showToast('Password updated successfully');
+      setPasswords({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      showToast(err.message || 'Failed to update password');
+    }
   };
 
   const handleTwoFactorToggle = async (val) => {
     try {
-      await toggleTwoFactorSetting(val);
+      await updateTwoFactor(val);
       setTwoFactor(val);
-      if (accessToken && typeof setAuth === 'function') {
-        setAuth(accessToken, {
-          ...user,
-          two_factor_enabled: val
-        });
-      }
+      localStorage.setItem('scanvista-settings-2fa', val);
       showToast(`Two-Factor Auth ${val ? 'Enabled' : 'Disabled'}`);
     } catch (err) {
-      showToast(err.message || 'Failed to toggle 2FA');
+      showToast(err.message || 'Failed to update 2FA');
     }
   };
 
-  const logoutOtherSessions = () => {
-    setSessions(sessions.filter(s => s.active));
-    showToast('Logged out of all other sessions');
+  const logoutOtherSessions = async () => {
+    try {
+      await logoutAllSessions();
+      setSessions(sessions.filter(s => s.active));
+      showToast('Logged out of all other sessions');
+    } catch (err) {
+      showToast(err.message || 'Failed to logout sessions');
+    }
   };
 
-  const removeSession = (id) => {
-    setSessions(sessions.filter(s => s.id !== id));
-    showToast('Session revoked');
+  const removeSession = async (id) => {
+    try {
+      await logoutSession(id);
+      setSessions(sessions.filter(s => s.id !== id));
+      showToast('Session revoked');
+    } catch (err) {
+      showToast(err.message || 'Failed to revoke session');
+    }
   };
 
   // --- Preferences State ---
-  const [preferences, setPreferences] = useState(() => {
-    const saved = localStorage.getItem('scanvista-settings-prefs');
-    return saved ? JSON.parse(saved) : {
-      language: 'English (US)',
-      alerts: true,
-      completion: false,
-      newsletter: true
-    };
-  });
-
-  const updatePref = (key, value) => {
-    const updated = { ...preferences, [key]: value };
-    setPreferences(updated);
-    localStorage.setItem('scanvista-settings-prefs', JSON.stringify(updated));
-  };
+  const preferences = useSettingsStore((s) => s.preferences);
+  const updatePref = useSettingsStore((s) => s.updatePreference);
 
 
   // --- Render Tabs ---
@@ -290,35 +270,62 @@ export default function Settings() {
         <div className="space-y-6 max-w-4xl">
           <div>
             <label className="block text-xs font-bold text-slate-400 mb-2">Current Password</label>
-            <input 
-              type="password" 
-              value={passwords.current}
-              onChange={(e) => setPasswords({...passwords, current: e.target.value})}
-              className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-              placeholder="••••••••••••"
-            />
+            <div className="relative">
+              <input 
+                type={showCurrentPassword ? "text" : "password"} 
+                value={passwords.current}
+                onChange={(e) => setPasswords({...passwords, current: e.target.value})}
+                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                placeholder="••••••••••••"
+              />
+              <button 
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+              >
+                {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
           
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2">New Password</label>
-              <input 
-                type="password" 
-                value={passwords.new}
-                onChange={(e) => setPasswords({...passwords, new: e.target.value})}
-                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-                placeholder="••••••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showNewPassword ? "text" : "password"} 
+                  value={passwords.new}
+                  onChange={(e) => setPasswords({...passwords, new: e.target.value})}
+                  className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                  placeholder="••••••••••••"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                >
+                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-400 mb-2">Confirm New Password</label>
-              <input 
-                type="password" 
-                value={passwords.confirm}
-                onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
-                className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 focus:outline-none focus:border-[#00F0FF]"
-                placeholder="••••••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showConfirmPassword ? "text" : "password"} 
+                  value={passwords.confirm}
+                  onChange={(e) => setPasswords({...passwords, confirm: e.target.value})}
+                  className="w-full bg-[#0b0e14] border border-[#1a2235] text-white rounded-xl px-4 py-3.5 pr-12 focus:outline-none focus:border-[#00F0FF]"
+                  placeholder="••••••••••••"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -381,7 +388,7 @@ export default function Settings() {
                 {session.type === 'desktop' && <Monitor className="text-slate-400 w-6 h-6" />}
                 <div>
                   <h4 className="text-sm font-bold text-white">{session.name}</h4>
-                  <p className="text-xs text-slate-400 mt-1">{session.browser} • {session.time}</p>
+                  <p className="text-xs text-slate-400 mt-1">{session.browser} • {session.ip_address} • {new Date(session.created_at).toLocaleString()}</p>
                 </div>
               </div>
               {session.active ? (
@@ -468,52 +475,6 @@ export default function Settings() {
     </div>
   );
 
-  const renderProjectTab = () => (
-    <div className="animate-fade-in space-y-12">
-      <div>
-        <h2 className="text-3xl font-black text-white font-display flex items-center gap-3">
-          <SettingsIcon className="text-[#00F0FF] w-6 h-6" /> Project Settings
-        </h2>
-        <p className="text-xs text-slate-500 mt-2">Manage settings and lifecycle of the active workspace.</p>
-      </div>
-
-      {/* Project details card */}
-      <div className="bg-[#0b101e] border border-white/5 rounded-2xl p-8 max-w-4xl space-y-6">
-        <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Project Name</label>
-          <div className="w-full bg-[#131929] border border-white/5 text-slate-300 font-bold rounded-xl px-4 py-3.5 select-none">
-            {activeProject.name}
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Project Description</label>
-          <div className="w-full bg-[#131929] border border-white/5 text-slate-300 font-medium rounded-xl px-4 py-3.5 min-h-[80px] select-none">
-            {activeProject.description || 'No description provided.'}
-          </div>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div className="bg-[#1c0d12] border border-rose-500/10 rounded-2xl p-8 max-w-4xl space-y-4">
-        <div className="flex items-center gap-3 text-rose-400">
-          <AlertTriangle className="w-5 h-5 shrink-0" />
-          <h3 className="text-lg font-bold font-display uppercase tracking-wide">Danger Zone</h3>
-        </div>
-        <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-          Deleting this project will soft-delete the project and all of its associated products. Scanning their QR codes will immediately display a product unavailable error page. You can restore this project and its assets within 7 days, after which they will be permanently purged.
-        </p>
-        <div className="pt-2">
-          <button
-            onClick={() => setProjectDeleteOpen(true)}
-            className="bg-rose-600/10 border border-rose-500/25 hover:bg-rose-600/20 text-rose-400 hover:text-rose-300 font-black py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition-all"
-          >
-            Delete Project
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
 
   // --- Main Layout ---
   return (
@@ -541,17 +502,6 @@ export default function Settings() {
           >
             <User className="w-4 h-4" /> Profile
           </button>
-
-          {activeProject && (
-            <button 
-              onClick={() => setActiveTab('Project')}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                activeTab === 'Project' ? 'bg-[#212c41] text-[#00F0FF]' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-              }`}
-            >
-              <SettingsIcon className="w-4 h-4" /> Project Settings
-            </button>
-          )}
           
           <button 
             onClick={() => setActiveTab('Security')}
@@ -587,16 +537,8 @@ export default function Settings() {
         {activeTab === 'Profile' && renderProfileTab()}
         {activeTab === 'Security' && renderSecurityTab()}
         {activeTab === 'Preferences' && renderPreferencesTab()}
-        {activeTab === 'Project' && activeProject && renderProjectTab()}
       </div>
 
-      <DeleteConfirmModal
-        isOpen={projectDeleteOpen}
-        onClose={() => setProjectDeleteOpen(false)}
-        onConfirm={handleProjectDeleteConfirm}
-        itemName={activeProject ? activeProject.name : ''}
-        itemType="project"
-      />
     </div>
   );
 }

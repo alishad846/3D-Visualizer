@@ -54,3 +54,15 @@ export const logProductScan = async (productId, payload = {}) => {
   }
   return res.json();
 };
+
+export const fetchPublicShowcase = async () => {
+  const res = await publicRequest('/viewer/showcase');
+  if (!res.ok) throw new Error('Failed to load showcase');
+  return res.json();
+};
+
+export const fetchPublicAnalytics = async () => {
+  const res = await publicRequest('/viewer/analytics');
+  if (!res.ok) throw new Error('Failed to load public analytics');
+  return res.json();
+};

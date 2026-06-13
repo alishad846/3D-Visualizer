@@ -189,8 +189,14 @@ export default function Favorites() {
               <p className="text-sm text-slate-400">Scan this QR code to view the product.</p>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl shadow-xl">
-              <QRCodeSVG value={`${window.location.origin}/p/${selectedQRProduct.slug}`} size={200} />
+            <div className="bg-white p-4 rounded-2xl shadow-xl flex items-center justify-center">
+              <QRCodeSVG 
+                value={`${window.location.origin}/p/${selectedQRProduct.slug}`} 
+                size={200}
+                fgColor="#000000"
+                bgColor="#ffffff"
+                level="H"
+              />
             </div>
           </div>
         </div>

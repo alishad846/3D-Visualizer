@@ -1,23 +1,42 @@
 import { create } from 'zustand';
+import { fetchNotifications, markNotificationsAsRead, clearNotificationsApi } from '../api/notifications';
 
-export const useNotificationStore = create((set) => ({
-  notifications: [
-    { id: 1, text: 'Welcome to ScanVista Creator Pro!', read: false, time: new Date().toISOString() }
-  ],
-  unreadCount: 1,
+export const useNotificationStore = create((set, get) => ({
+  notifications: [],
+  unreadCount: 0,
   
-  addNotification: (text) => set((state) => {
-    const newNotif = { id: Date.now(), text, read: false, time: new Date().toISOString() };
-    return {
-      notifications: [newNotif, ...state.notifications],
-      unreadCount: state.unreadCount + 1
-    };
-  }),
+  fetchUserNotifications: async () => {
+    try {
+      const data = await fetchNotifications();
+      const notifs = data.notifications || [];
+      const unread = notifs.filter(n => !n.read).length;
+      set({ notifications: notifs, unreadCount: unread });
+    } catch (err) {
+      console.error('Failed to fetch notifications:', err);
+    }
+  },
 
-  markAllAsRead: () => set((state) => ({
-    notifications: state.notifications.map(n => ({ ...n, read: true })),
-    unreadCount: 0
-  })),
+  markAllAsRead: async () => {
+    // Optimistic
+    set((state) => ({
+      notifications: state.notifications.map(n => ({ ...n, read: true })),
+      unreadCount: 0
+    }));
 
-  clearNotifications: () => set({ notifications: [], unreadCount: 0 })
+    try {
+      await markNotificationsAsRead();
+    } catch (err) {
+      console.error('Failed to mark notifications as read:', err);
+      // We could revert here, but for notifications optimistic failure is usually acceptable
+    }
+  },
+
+  clearNotifications: async () => {
+    set({ notifications: [], unreadCount: 0 });
+    try {
+      await clearNotificationsApi();
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+    }
+  }
 }));

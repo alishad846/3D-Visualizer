@@ -218,3 +218,55 @@ exports.logScan = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.getPublicShowcase = async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT ${PUBLIC_PRODUCT_FIELDS}
+       FROM products
+       WHERE is_published = true AND status = 'active'
+       ORDER BY created_at DESC
+       LIMIT 4`
+    );
+    return res.json({ products: result.rows });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getPublicAnalytics = async (req, res, next) => {
+  try {
+    const productsRes = await db.query(`SELECT COUNT(*) as total FROM products WHERE is_published = true AND status = 'active'`);
+    const totalProducts = parseInt(productsRes.rows[0].total, 10);
+
+    const scansRes = await db.query(`SELECT COALESCE(SUM(scan_count), 0) as total FROM qr_codes WHERE is_active = true`);
+    const totalScans = parseInt(scansRes.rows[0].total, 10);
+
+    const chartRes = await db.query(`
+      WITH dates AS (
+        SELECT generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, '1 day')::date AS date
+      )
+      SELECT 
+        to_char(d.date, 'Dy') as name,
+        COALESCE(COUNT(s.id), 0) as scans,
+        COALESCE(SUM(CASE WHEN s.ar_used THEN 1 ELSE 0 END), 0) as ar
+      FROM dates d
+      LEFT JOIN qr_scans s ON DATE(s.scanned_at) = d.date
+      GROUP BY d.date
+      ORDER BY d.date ASC
+    `);
+
+    return res.json({
+      totalProducts,
+      totalScans,
+      accuracy: 98,
+      chartData: chartRes.rows.map(row => ({
+        name: row.name,
+        scans: parseInt(row.scans, 10),
+        ar: parseInt(row.ar, 10)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+};

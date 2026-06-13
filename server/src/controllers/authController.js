@@ -19,12 +19,30 @@ const {
   createAndSendResetToken,
   cleanupResetTokens,
 } = require('../services/passwordResetService');
-const { sendTwoFactorCodeEmail } = require('../services/mailService');
 
 // Helper to validate email format
 const isValidEmail = (email) => {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
+};
+
+const getDeviceInfo = (req) => {
+  const ua = req.headers['user-agent'] || '';
+  let browser = 'Unknown Browser';
+  let os = 'Unknown OS';
+  if (ua.includes('Chrome')) browser = 'Chrome';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) browser = 'Safari';
+  else if (ua.includes('Firefox')) browser = 'Firefox';
+  else if (ua.includes('Edge')) browser = 'Edge';
+
+  if (ua.includes('Win')) os = 'Windows';
+  else if (ua.includes('Mac')) os = 'MacOS';
+  else if (ua.includes('X11') || ua.includes('Linux')) os = 'Linux';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  else if (ua.includes('Android')) os = 'Android';
+
+  const type = (os === 'iOS' || os === 'Android') ? 'phone' : 'desktop';
+  return { name: os, browser, type };
 };
 
 const isStrongPassword = (password) =>
@@ -67,7 +85,7 @@ exports.register = async (req, res, next) => {
     const insertResult = await db.query(
       `INSERT INTO users (name, email, password_hash, preferred_language)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, preferred_language, two_factor_enabled`,
+       RETURNING id, name, email, preferred_language`,
       [name.trim(), email, passwordHash, 'en']
     );
     const user = insertResult.rows[0];
@@ -89,10 +107,13 @@ exports.register = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, refreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     // // 7. Set Refresh Token HTTP-only cookie
@@ -126,7 +147,7 @@ exports.login = async (req, res, next) => {
   try {
     // 1. Fetch user
     const userResult = await db.query(
-      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until, two_factor_enabled
+      `SELECT id, name, email, password_hash, preferred_language, failed_login_attempts, locked_until, two_factor_enabled, avatar_url, preferences
        FROM users
        WHERE email = $1`,
       [email]
@@ -190,43 +211,28 @@ exports.login = async (req, res, next) => {
       [user.id]
     );
 
-    // 2.5 Check if Two-Factor Authentication is enabled
     if (user.two_factor_enabled) {
-      // Generate a 6-character alphanumeric captcha (capital letters and numbers)
-      const generateCaptcha = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let result = '';
-        for (let i = 0; i < 6; i++) {
-          result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return result;
-      };
-
-      const captchaCode = generateCaptcha();
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-      // Save the code in two_factor_codes table
+      // Clean up expired tokens
+      await db.query(`DELETE FROM two_factor_tokens WHERE expires_at < NOW() OR used = true`);
+      
+      const crypto = require('crypto');
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiryMinutes = 10;
+      
       await db.query(
-        `INSERT INTO two_factor_codes (user_id, code, expires_at)
-         VALUES ($1, $2, $3)`,
-        [user.id, captchaCode, expiresAt]
+        `INSERT INTO two_factor_tokens (user_id, otp_hash, expires_at)
+         VALUES ($1, $2, NOW() + ($3 || ' minutes')::interval)`,
+        [user.id, otpHash, expiryMinutes]
       );
-
-      // Send email containing the captcha
-      try {
-        await sendTwoFactorCodeEmail({
-          to: user.email,
-          code: captchaCode,
-          expiryMinutes: 5
-        });
-      } catch (mailError) {
-        console.error('Failed to send 2FA verification email:', mailError.message);
-      }
-
-      // Return response indicating 2FA is required
-      return res.status(200).json({
-        requires2FA: true,
-        userId: user.id
+      
+      const { sendTwoFactorEmail } = require('../services/mailService');
+      await sendTwoFactorEmail({ to: user.email, otp, expiryMinutes });
+      
+      return res.json({
+        requiresTwoFactor: true,
+        email: user.email,
+        message: 'Two-factor authentication code sent to email.'
       });
     }
 
@@ -250,10 +256,13 @@ exports.login = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, refreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     res.cookie('refreshToken', refreshToken, refreshCookieOptions());
@@ -263,13 +272,88 @@ exports.login = async (req, res, next) => {
       id: user.id,
       name: user.name,
       email: user.email,
+      avatar: user.avatar_url,
       preferred_language: user.preferred_language,
-      two_factor_enabled: user.two_factor_enabled
+      preferences: user.preferences
     };
 
     return res.json({
       accessToken,
       user: userResponse
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/verify-2fa
+exports.verifyTwoFactor = async (req, res, next) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+  try {
+    const userResult = await db.query('SELECT id, name, email, preferred_language FROM users WHERE email = $1', [email]);
+    if (userResult.rowCount === 0) return res.status(401).json({ error: 'Invalid request' });
+    const user = userResult.rows[0];
+
+    const tokens = await db.query(
+      `SELECT id, otp_hash FROM two_factor_tokens 
+       WHERE user_id = $1 AND used = false AND expires_at > NOW()`, 
+      [user.id]
+    );
+    
+    if (tokens.rowCount === 0) return res.status(401).json({ error: 'Invalid or expired OTP' });
+
+    let validTokenId = null;
+    for (const token of tokens.rows) {
+      const isValid = await bcrypt.compare(otp, token.otp_hash);
+      if (isValid) {
+        validTokenId = token.id;
+        break;
+      }
+    }
+
+    if (!validTokenId) return res.status(401).json({ error: 'Invalid or expired OTP' });
+
+    await db.query('UPDATE two_factor_tokens SET used = true WHERE id = $1', [validTokenId]);
+
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+    await db.query(
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
+    );
+
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
+
+    return res.json({
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        preferred_language: user.preferred_language
+      }
     });
   } catch (error) {
     next(error);
@@ -437,7 +521,7 @@ exports.refresh = async (req, res, next) => {
 
     // Fetch user details for access token payload and return block
     const userResult = await db.query(
-      'SELECT id, name, email, preferred_language, two_factor_enabled FROM users WHERE id = $1',
+      'SELECT id, name, email, preferred_language, avatar_url, preferences FROM users WHERE id = $1',
       [userId]
     );
     if (userResult.rowCount === 0) {
@@ -462,17 +546,27 @@ exports.refresh = async (req, res, next) => {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
     await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, newRefreshTokenHash, expiresAt]
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, newRefreshTokenHash, expiresAt, deviceInfo, ipAddress]
     );
 
     res.cookie('refreshToken', newRefreshToken, refreshCookieOptions());
 
     return res.json({
       accessToken: newAccessToken,
-      user
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar_url,
+        preferred_language: user.preferred_language,
+        preferences: user.preferences
+      }
     });
   } catch (error) {
     next(error);
@@ -518,130 +612,173 @@ exports.logout = async (req, res, next) => {
   }
 };
 
-// POST /api/auth/verify-2fa
-exports.verify2FA = async (req, res, next) => {
-  const { userId, code } = req.body;
+// POST /api/auth/change-password
+exports.changePassword = async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.userId;
 
-  if (!userId || !code) {
-    return res.status(400).json({ error: 'User ID and verification code are required' });
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new passwords are required' });
+  }
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long and include an uppercase letter, a lowercase letter, and a number.' });
   }
 
   try {
-    // 1. Fetch user details
-    const userResult = await db.query(
-      `SELECT id, name, email, preferred_language, two_factor_enabled FROM users WHERE id = $1`,
-      [userId]
-    );
+    const userResult = await db.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+    if (userResult.rowCount === 0) return res.status(404).json({ error: 'User not found' });
 
-    if (userResult.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const isMatch = await bcrypt.compare(currentPassword, userResult.rows[0].password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Incorrect current password' });
     }
 
-    const user = userResult.rows[0];
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, userId]);
 
-    // 2. Fetch the latest unused active code for this user
-    const codeResult = await db.query(
-      `SELECT id, code, expires_at, used
-       FROM two_factor_codes
-       WHERE user_id = $1 AND used = FALSE
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [userId]
-    );
-
-    if (codeResult.rowCount === 0) {
-      return res.status(401).json({ error: 'No verification code found. Please request a new one.' });
-    }
-
-    const verificationRecord = codeResult.rows[0];
-
-    // 3. Check code match (case-sensitive as specified by capital letters requirement)
-    if (verificationRecord.code !== code.trim()) {
-      return res.status(401).json({ error: 'Incorrect verification code.' });
-    }
-
-    // 4. Check expiration
-    if (new Date(verificationRecord.expires_at) < new Date()) {
-      return res.status(401).json({ error: 'Verification code has expired. Please try again.' });
-    }
-
-    // 5. Mark code as used
-    await db.query(
-      `UPDATE two_factor_codes SET used = TRUE WHERE id = $1`,
-      [verificationRecord.id]
-    );
-
-    // 6. Generate Tokens
-    const accessToken = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: '15m' }
-    );
-
-    const refreshToken = jwt.sign(
-      { userId: user.id },
-      JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    const refreshTokenHash = hashRefreshToken(refreshToken);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    // Clean sessions: revoke existing refresh tokens
-    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
-
-    await db.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, refreshTokenHash, expiresAt]
-    );
-
-    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
-
-    return res.json({
-      accessToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        preferred_language: user.preferred_language,
-        two_factor_enabled: user.two_factor_enabled
-      }
-    });
+    return res.json({ success: true, message: 'Password updated successfully' });
   } catch (error) {
     next(error);
   }
 };
 
-// PUT /api/auth/two-factor
-exports.toggleTwoFactor = async (req, res, next) => {
+// POST /api/auth/update-2fa
+exports.updateTwoFactor = async (req, res, next) => {
   const { enabled } = req.body;
-  const userId = req.user?.userId || req.user?.id; // Allow either decoded token structure
-
-  if (typeof enabled !== 'boolean') {
-    return res.status(400).json({ error: 'Invalid parameter. Enabled must be a boolean.' });
-  }
-
-  if (!userId) {
-    return res.status(401).json({ error: 'Unauthorized.' });
-  }
+  const userId = req.user.userId;
 
   try {
-    await db.query(
-      `UPDATE users
-       SET two_factor_enabled = $1,
-           updated_at = NOW()
-       WHERE id = $2`,
-      [enabled, userId]
-    );
-
-    return res.json({
-      success: true,
-      message: `Two-Factor Authentication has been successfully ${enabled ? 'enabled' : 'disabled'}.`,
-      two_factor_enabled: enabled
-    });
+    await db.query('UPDATE users SET two_factor_enabled = $1 WHERE id = $2', [enabled, userId]);
+    return res.json({ success: true, two_factor_enabled: enabled });
   } catch (error) {
     next(error);
   }
 };
+
+// GET /api/auth/sessions
+exports.getSessions = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { refreshToken } = req.cookies;
+  const currentHash = refreshToken ? hashRefreshToken(refreshToken) : null;
+
+  try {
+    const sessions = await db.query(
+      'SELECT id, token_hash, expires_at, created_at, device_info, ip_address FROM refresh_tokens WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+
+    const formattedSessions = sessions.rows.map(s => {
+      const isCurrent = s.token_hash === currentHash;
+      const device = s.device_info || {};
+      return {
+        id: s.id,
+        type: device.type || 'desktop',
+        name: device.name || 'Unknown Device',
+        browser: device.browser || 'Unknown Browser',
+        ip_address: s.ip_address,
+        created_at: s.created_at,
+        active: isCurrent
+      };
+    });
+
+    return res.json({ sessions: formattedSessions });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/sessions/logout-all
+exports.logoutAllSessions = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { refreshToken } = req.cookies;
+  const currentHash = refreshToken ? hashRefreshToken(refreshToken) : null;
+
+  try {
+    if (currentHash) {
+      await db.query('DELETE FROM refresh_tokens WHERE user_id = $1 AND token_hash != $2', [userId, currentHash]);
+    } else {
+      await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [userId]);
+    }
+    return res.json({ success: true, message: 'All other sessions logged out' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/sessions/:id/logout
+exports.logoutSession = async (req, res, next) => {
+  const userId = req.user.userId;
+  const sessionId = req.params.id;
+
+  try {
+    await db.query('DELETE FROM refresh_tokens WHERE id = $1 AND user_id = $2', [sessionId, userId]);
+    return res.json({ success: true, message: 'Session logged out' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/auth/profile
+exports.updateProfile = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { name, email, avatar } = req.body;
+
+  try {
+    const result = await db.query(
+      `UPDATE users 
+       SET name = COALESCE($1, name), 
+           email = COALESCE($2, email), 
+           avatar_url = COALESCE($3, avatar_url) 
+       WHERE id = $4 
+       RETURNING id, name, email, avatar_url as avatar, preferred_language, preferences`,
+      [name, email, avatar, userId]
+    );
+    
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    
+    return res.json({ success: true, user: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/auth/preferences
+exports.updatePreferences = async (req, res, next) => {
+  const userId = req.user.userId;
+  const { preferences } = req.body;
+
+  try {
+    const result = await db.query(
+      `UPDATE users 
+       SET preferences = $1::jsonb
+       WHERE id = $2 
+       RETURNING id, name, email, avatar_url as avatar, preferred_language, preferences`,
+      [JSON.stringify(preferences), userId]
+    );
+    
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    
+    return res.json({ success: true, preferences: result.rows[0].preferences });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/auth/me
+exports.getMe = async (req, res, next) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await db.query(
+      'SELECT id, name, email, avatar_url as avatar, preferred_language, preferences FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (result.rowCount === 0) return res.status(404).json({ error: 'User not found' });
+    
+    return res.json({ user: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+};
+

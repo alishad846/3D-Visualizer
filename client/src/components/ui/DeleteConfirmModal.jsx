@@ -23,7 +23,7 @@ export default function DeleteConfirmModal({
 
   if (!isOpen) return null;
 
-  const isMatched = typedName.trim() === itemName;
+  const isMatched = typedName.trim().toLowerCase() === (itemName || '').toLowerCase();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,7 +103,7 @@ export default function DeleteConfirmModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                Type <span className="text-white select-all font-mono font-black">{itemName}</span> to confirm
+                Type <span className="text-white select-all font-mono font-black normal-case tracking-normal">{itemName}</span> to confirm
               </label>
               <input
                 type="text"

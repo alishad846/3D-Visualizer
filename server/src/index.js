@@ -13,6 +13,7 @@ const viewerRoutes = require('./routes/viewer');
 const analyticsRoutes = require('./routes/analytics');
 const aiRoutes = require('./routes/ai');
 const recommendationRoutes = require('./routes/recommendations');
+const notificationRoutes = require('./routes/notifications');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { rateLimiter } = require('./middleware/rateLimiter');
@@ -55,6 +56,7 @@ app.use('/api/viewer', viewerRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler);
 

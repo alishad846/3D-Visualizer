@@ -166,6 +166,38 @@ async function runMigrations() {
   `);
   console.log('Added device_info and ip_address to refresh_tokens.');
 
+  // 9. Profile & Preferences
+  await db.query(`
+    ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+      ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{"language": "English (US)", "alerts": true, "completion": false, "newsletter": true}'::jsonb;
+  `);
+  console.log('Added avatar_url and preferences to users.');
+
+  // 10. Favorites
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS product_favorites (
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (user_id, product_id)
+    );
+  `);
+  console.log('Created or verified product_favorites table.');
+
+  // 11. Notifications
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      text TEXT NOT NULL,
+      read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`);
+  console.log('Created or verified notifications table and indexes.');
+
   console.log('Migrations completed successfully!');
 }
 

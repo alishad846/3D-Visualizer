@@ -138,3 +138,19 @@ export const restoreProduct = async (id) => {
   if (!res.ok) throw new Error(data.error || 'Failed to restore product');
   return data;
 };
+
+export const fetchFavorites = async () => {
+  const res = await authRequest('/products/favorites/me');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch favorites');
+  return data;
+};
+
+export const toggleFavoriteApi = async (id) => {
+  const res = await authRequest(`/products/${encodeURIComponent(id)}/favorite`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to toggle favorite');
+  return data;
+};
