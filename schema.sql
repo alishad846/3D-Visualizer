@@ -2,6 +2,8 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
+CREATE TYPE deletion_status AS ENUM ('active', 'deleted');
+
 -- USERS
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -11,6 +13,7 @@ CREATE TABLE users (
     failed_login_attempts INTEGER NOT NULL DEFAULT 0,
     locked_until TIMESTAMPTZ NULL,
     preferred_language VARCHAR(10) DEFAULT 'en',
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -37,12 +40,26 @@ CREATE TABLE reset_password_tokens (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- TWO-FACTOR CODES
+CREATE TABLE two_factor_codes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    code VARCHAR(6) NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- PROJECTS (workspace grouping)
 CREATE TABLE projects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(150) NOT NULL,
     description TEXT,
+    status deletion_status NOT NULL DEFAULT 'active',
+    deleted_at TIMESTAMPTZ NULL,
+    deleted_by UUID REFERENCES users(id),
+    purge_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -90,6 +107,10 @@ CREATE TABLE products (
     -- State
     is_published BOOLEAN DEFAULT TRUE,
     slug VARCHAR(255) UNIQUE,
+    status deletion_status NOT NULL DEFAULT 'active',
+    deleted_at TIMESTAMPTZ NULL,
+    deleted_by UUID REFERENCES users(id),
+    purge_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -188,3 +209,24 @@ CREATE INDEX idx_product_embeddings_vector ON product_embeddings USING hnsw (emb
 CREATE INDEX idx_product_embeddings_product_id ON product_embeddings(product_id);
 CREATE INDEX idx_user_interactions_product_type ON user_interactions(product_id, interaction_type);
 CREATE INDEX idx_qr_scans_product_timestamp ON qr_scans(product_id, scanned_at DESC);
+CREATE INDEX idx_two_factor_codes_user_id ON two_factor_codes(user_id);
+CREATE INDEX idx_two_factor_codes_expires_at ON two_factor_codes(expires_at);
+CREATE INDEX idx_two_factor_codes_used ON two_factor_codes(used);
+
+-- UNIQUENESS: project name must be unique per user, case-insensitive for active projects
+CREATE UNIQUE INDEX IF NOT EXISTS uq_active_projects_user_name
+    ON projects (user_id, LOWER(name)) WHERE status = 'active';
+
+-- UNIQUENESS: product name must be unique per (user, project), case-insensitive for active products
+-- Enforces the user->project->product uniqueness rule:
+--   same product name in two different projects of the same user = OK
+--   same product name in two different users' projects = OK
+--   two products with the same name inside the same user's project = NOT allowed
+CREATE UNIQUE INDEX IF NOT EXISTS uq_active_products_user_project_name
+    ON products (user_id, project_id, LOWER(name)) WHERE status = 'active';
+
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+CREATE INDEX IF NOT EXISTS idx_projects_purge_at ON projects(purge_at) WHERE purge_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_products_purge_at ON products(purge_at) WHERE purge_at IS NOT NULL;
+

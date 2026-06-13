@@ -5,9 +5,10 @@ import {
   Search, Grid, List, Plus, Box,
   Edit3, ExternalLink, ChevronLeft, ChevronRight,
   Package, FolderOpen, CheckCircle2, Clock, UploadCloud,
-  ChevronDown, Heart, QrCode, X
+  ChevronDown, Trash2
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import { deleteProduct } from '../../api/products';
+import DeleteConfirmModal from '../../components/ui/DeleteConfirmModal';
 
 const PAGE_SIZE = 10;
 
@@ -30,7 +31,7 @@ function formatPrice(price, currency) {
 }
 
 export default function Products() {
-  const { products, loadingProducts, activeProject, favorites, toggleFavorite: storeToggleFavorite } = useWorkspaceStore();
+  const { products, loadingProducts, activeProject } = useWorkspaceStore();
   const navigate = useNavigate();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,11 +42,20 @@ export default function Products() {
   const [viewMode, setViewMode] = useState('grid');
   const [page, setPage] = useState(1);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
-  const [selectedQRProduct, setSelectedQRProduct] = useState(null);
 
-  const toggleFavorite = (e, id) => {
-    e.stopPropagation();
-    storeToggleFavorite(id);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+    try {
+      await deleteProduct(productToDelete.id);
+      useWorkspaceStore.getState().fetchProductsForActiveProject(activeProject.id);
+      setDeleteModalOpen(false);
+      setProductToDelete(null);
+    } catch (error) {
+      alert(error.message || 'Failed to delete product.');
+    }
   };
 
   // Derive unique categories from real data only
@@ -352,13 +362,14 @@ export default function Products() {
       {viewMode === 'grid' && paged.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {paged.map(product => (
-            <ProductCard 
-              key={product.id} 
-              product={product} 
-              navigate={navigate} 
-              isFavorite={favorites.includes(product.id)}
-              onToggleFavorite={(e) => toggleFavorite(e, product.id)}
-              onShowQR={(e) => { e.stopPropagation(); setSelectedQRProduct(product); }}
+            <ProductCard
+              key={product.id}
+              product={product}
+              navigate={navigate}
+              onDelete={() => {
+                setProductToDelete(product);
+                setDeleteModalOpen(true);
+              }}
             />
           ))}
           {/* Dashed "Add Product" card — always last in the grid */}
@@ -393,13 +404,14 @@ export default function Products() {
             </thead>
             <tbody>
               {paged.map(product => (
-                <ProductListRow 
-                  key={product.id} 
-                  product={product} 
+                <ProductListRow
+                  key={product.id}
+                  product={product}
                   navigate={navigate}
-                  isFavorite={favorites.includes(product.id)}
-                  onToggleFavorite={(e) => toggleFavorite(e, product.id)}
-                  onShowQR={(e) => { e.stopPropagation(); setSelectedQRProduct(product); }}
+                  onDelete={() => {
+                    setProductToDelete(product);
+                    setDeleteModalOpen(true);
+                  }}
                 />
               ))}
             </tbody>
@@ -435,37 +447,16 @@ export default function Products() {
         </div>
       )}
 
-      {/* ── QR Modal ── */}
-      {selectedQRProduct && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
-          onClick={() => setSelectedQRProduct(null)}
-        >
-          <div 
-            className="bg-[#0a1523] border border-[#1e2e4f] p-8 rounded-3xl max-w-sm w-full relative flex flex-col items-center shadow-[0_0_50px_rgba(0,0,0,0.5)]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button 
-              onClick={() => setSelectedQRProduct(null)}
-              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            
-            <div className="text-center mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/20 flex items-center justify-center mx-auto mb-4">
-                <QrCode className="w-6 h-6 text-[#00F0FF]" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-2">{selectedQRProduct.name}</h3>
-              <p className="text-sm text-slate-400">Scan this QR code to view the product.</p>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl shadow-xl">
-              <QRCodeSVG value={`${window.location.origin}/p/${selectedQRProduct.slug}`} size={200} />
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteConfirmModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setProductToDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        itemName={productToDelete ? productToDelete.name : ''}
+        itemType="product"
+      />
     </div>
   );
 }
@@ -511,16 +502,13 @@ function relativeTimeInternal(dateStr) {
   return relativeTime(dateStr);
 }
 
-function ProductCard({ product, navigate, isFavorite, onToggleFavorite, onShowQR }) {
+function ProductCard({ product, navigate, onDelete }) {
   const isPublished = product.is_published;
   const hasModel = !!product.model_url;
   const hasThumbnail = !!product.thumbnail_url;
 
   return (
-    <div 
-      onClick={() => navigate(`/viewer/${product.id}`)}
-      className="bg-[#0c1324] border border-[#1e2e4f] hover:border-[#00F0FF]/30 rounded-2xl overflow-hidden transition-all duration-300 group flex flex-col shadow-sm hover:shadow-[0_4px_24px_rgba(0,240,255,0.06)] cursor-pointer"
-    >
+    <div className="bg-[#0c1324] border border-[#1e2e4f] hover:border-[#00F0FF]/30 rounded-2xl overflow-hidden transition-all duration-300 group flex flex-col shadow-sm hover:shadow-[0_4px_24px_rgba(0,240,255,0.06)]">
       {/* Thumbnail area */}
       <div className="relative aspect-video bg-[#080d1a] flex items-center justify-center overflow-hidden">
         {hasThumbnail ? (
@@ -578,32 +566,22 @@ function ProductCard({ product, navigate, isFavorite, onToggleFavorite, onShowQR
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={onToggleFavorite}
-              className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-rose-500 hover:bg-rose-500/10' : 'text-slate-500 hover:text-rose-400 hover:bg-[#1a263f]'}`}
-              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            >
-              <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
-            </button>
-            {isPublished && product.slug && (
-              <button
-                onClick={onShowQR}
-                className="p-1.5 rounded-lg text-slate-500 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-all"
-                title="View QR Code"
-              >
-                <QrCode className="w-3.5 h-3.5" />
-              </button>
-            )}
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/edit-product/${product.id}`); }}
+              onClick={() => navigate(`/edit-product/${product.id}`)}
               className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-[#1a263f] transition-all"
               title="Edit product"
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+              title="Delete product"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
             {isPublished && product.slug && (
               <a
                 href={`/p/${product.slug}`}
-                onClick={(e) => e.stopPropagation()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 rounded-lg text-slate-500 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-all"
@@ -619,13 +597,10 @@ function ProductCard({ product, navigate, isFavorite, onToggleFavorite, onShowQR
   );
 }
 
-function ProductListRow({ product, navigate, isFavorite, onToggleFavorite, onShowQR }) {
+function ProductListRow({ product, navigate, onDelete }) {
   const isPublished = product.is_published;
   return (
-    <tr 
-      onClick={() => navigate(`/viewer/${product.id}`)}
-      className="border-b border-[#16223b]/50 hover:bg-[#11192b]/40 transition-all cursor-pointer"
-    >
+    <tr className="border-b border-[#16223b]/50 hover:bg-[#11192b]/40 transition-all">
       <td className="py-4 px-5">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-[#11192b] border border-[#1d2d4a] flex items-center justify-center shrink-0 overflow-hidden">
@@ -664,32 +639,22 @@ function ProductListRow({ product, navigate, isFavorite, onToggleFavorite, onSho
       <td className="py-4 px-5">
         <div className="flex items-center gap-1">
           <button
-            onClick={onToggleFavorite}
-            className={`p-1.5 rounded-lg transition-all ${isFavorite ? 'text-rose-500 hover:bg-rose-500/10' : 'text-slate-500 hover:text-rose-400 hover:bg-[#1a263f]'}`}
-            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart className={`w-3.5 h-3.5 ${isFavorite ? 'fill-current' : ''}`} />
-          </button>
-          {isPublished && product.slug && (
-            <button
-              onClick={onShowQR}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-all"
-              title="View QR Code"
-            >
-              <QrCode className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/edit-product/${product.id}`); }}
+            onClick={() => navigate(`/edit-product/${product.id}`)}
             className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-[#1a263f] transition-all"
             title="Edit"
           >
             <Edit3 className="w-3.5 h-3.5" />
           </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
           {isPublished && product.slug && (
             <a
               href={`/p/${product.slug}`}
-              onClick={(e) => e.stopPropagation()}
               target="_blank"
               rel="noopener noreferrer"
               className="p-1.5 rounded-lg text-slate-500 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 transition-all"

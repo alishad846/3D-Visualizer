@@ -126,6 +126,30 @@ async function runMigrations() {
   `);
   console.log('Added or verified AI content tracking columns on products table.');
 
+  // 8. Add Two-Factor Authentication (2FA) support
+  await db.query(`
+    ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS two_factor_enabled BOOLEAN DEFAULT FALSE;
+  `);
+  console.log('Added or verified two_factor_enabled column on users table.');
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS two_factor_codes (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code VARCHAR(6) NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  console.log('Created or verified two_factor_codes table.');
+
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_two_factor_codes_user_id ON two_factor_codes(user_id);`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_two_factor_codes_expires_at ON two_factor_codes(expires_at);`);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_two_factor_codes_used ON two_factor_codes(used);`);
+  console.log('Created or verified two_factor_codes indexes.');
+
   console.log('Created or verified indexes.');
 
   // 8. Security Settings (Settings page real data)

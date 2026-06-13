@@ -15,7 +15,7 @@ async function refreshEmbeddingAndAIContent(productOrId, forceRegenerateAI = fal
   } else {
     const result = await db.query(
       `SELECT id, name, tagline, description, category, brand, features, specs, ai_generation_status
-       FROM products WHERE id = $1`,
+       FROM products WHERE id = $1 AND status = 'active'`,
       [productOrId]
     );
     if (result.rowCount > 0) {
@@ -246,11 +246,12 @@ async function parseBulkUploadRows(fileBuffer) {
   return { rows: dataRows, warnings };
 }
 
-async function validateBulkUploadRows(rows, projectId) {
+async function validateBulkUploadRows(rows, projectId, userId) {
   const rowErrors = [];
   const seenNames = new Map();
   const seenSkus = new Map();
   const skuCandidates = [];
+  const nameCandidates = [];
 
   const addRowError = (rowNumber, field, error, solution) => {
     rowErrors.push({ row: rowNumber, field, error, solution });
@@ -327,17 +328,19 @@ async function validateBulkUploadRows(rows, projectId) {
       }
     }
 
+    // In-file duplicate name check (case-insensitive)
     const normalizedName = name.toLowerCase();
     if (normalizedName && seenNames.has(normalizedName)) {
       addRowError(
         rowNumber,
         'name',
-        'Duplicate product name in upload file',
-        'Use unique product names within the bulk import file'
+        `Duplicate product name "${name}" within the upload file`,
+        'Each product in the import file must have a unique name'
       );
     }
     if (normalizedName) {
       seenNames.set(normalizedName, rowNumber);
+      nameCandidates.push(name);
     }
 
     if (sku) {
@@ -355,17 +358,42 @@ async function validateBulkUploadRows(rows, projectId) {
     }
   });
 
+  // DB: batch check for names that already exist in this user+project (user→project→product uniqueness)
+  if (nameCandidates.length > 0) {
+    const uniqueNames = [...new Set(nameCandidates.map((n) => n.trim().toLowerCase()))];
+    const { rows: existingNameRows } = await db.query(
+      `SELECT LOWER(name) AS name_lower
+       FROM products
+       WHERE user_id = $1 AND project_id = $2 AND LOWER(name) = ANY($3::text[]) AND status = 'active'`,
+      [userId, projectId, uniqueNames]
+    );
+    const existingNames = new Set(existingNameRows.map((row) => row.name_lower));
+    rows.forEach((row, index) => {
+      const n = String(row.name || '').trim();
+      if (n && existingNames.has(n.toLowerCase())) {
+        const rowNumber = row.__rowNumber || index + 2;
+        addRowError(
+          rowNumber,
+          'name',
+          `A product named "${n}" already exists in this project`,
+          'Use a product name that does not already exist in this project'
+        );
+      }
+    });
+  }
+
+  // DB: batch check for SKUs that already exist in this project
   if (skuCandidates.length > 0) {
     const uniqueSkus = [...new Set(skuCandidates.map((sku) => sku.trim()))];
     const { rows: existingSkuRows } = await db.query(
-      `SELECT sku FROM products WHERE project_id = $1 AND sku IS NOT NULL AND sku <> '' AND sku = ANY($2::text[])`,
+      `SELECT sku FROM products WHERE project_id = $1 AND sku IS NOT NULL AND sku <> '' AND sku = ANY($2::text[]) AND status = 'active'`,
       [projectId, uniqueSkus]
     );
     const existingSkus = new Set(existingSkuRows.map((row) => String(row.sku).trim().toLowerCase()));
     rows.forEach((row, index) => {
       const sku = String(row.sku || '').trim();
       if (sku && existingSkus.has(sku.toLowerCase())) {
-        const rowNumber = index + 2;
+        const rowNumber = row.__rowNumber || index + 2;
         addRowError(
           rowNumber,
           'sku',
@@ -378,6 +406,7 @@ async function validateBulkUploadRows(rows, projectId) {
 
   return rowErrors;
 }
+
 
 async function transformBulkRows(rows, projectId, userId) {
   const usedSlugs = new Set();
@@ -500,7 +529,7 @@ async function bulkUploadProductsToDb(products) {
           [inserted.id, product.projectId, product.userId, qrToken, destinationUrl, uploadResult.publicUrl]
         );
 
-        insertedProducts.push(product.rowNumber);
+        insertedProducts.push({ rowNumber: product.rowNumber, name: product.name });
       }
 
       await db.query('COMMIT');
@@ -518,7 +547,7 @@ async function bulkUploadProductsToDb(products) {
     }
   }
 
-  return { insertedCount: insertedProducts.length, skippedRows };
+  return { insertedCount: insertedProducts.length, insertedProducts, skippedRows };
 }
 
 // POST /api/products/upload-asset
@@ -556,7 +585,7 @@ exports.getProducts = async (req, res, next) => {
     if (projectId) {
       // Ensure project ownership
       const projectCheck = await db.query(
-        'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+        'SELECT id FROM projects WHERE id = $1 AND user_id = $2 AND status = \'active\'',
         [projectId, userId]
       );
       if (projectCheck.rowCount === 0) {
@@ -564,12 +593,12 @@ exports.getProducts = async (req, res, next) => {
       }
 
       result = await db.query(
-        `SELECT * FROM products WHERE project_id = $1 AND user_id = $2 ORDER BY created_at DESC`,
+        `SELECT * FROM products WHERE project_id = $1 AND user_id = $2 AND status = 'active' ORDER BY created_at DESC`,
         [projectId, userId]
       );
     } else {
       result = await db.query(
-        `SELECT * FROM products WHERE user_id = $1 ORDER BY created_at DESC`,
+        `SELECT * FROM products WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC`,
         [userId]
       );
     }
@@ -588,7 +617,7 @@ exports.getProductById = async (req, res, next) => {
 
   try {
     const result = await db.query(
-      `SELECT * FROM products WHERE id = $1 AND user_id = $2`,
+      `SELECT * FROM products WHERE id = $1 AND user_id = $2 AND status = 'active'`,
       [id, userId]
     );
 
@@ -644,11 +673,22 @@ exports.createProduct = async (req, res, next) => {
   try {
     // Validate project ownership
     const projectCheck = await db.query(
-      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2 AND status = \'active\'',
       [projectId, userId]
     );
     if (projectCheck.rowCount === 0) {
       return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    // Enforce: one project cannot contain two active products with the same name (case-insensitive)
+    const nameDupeCheck = await db.query(
+      `SELECT id FROM products WHERE user_id = $1 AND project_id = $2 AND LOWER(name) = LOWER($3) AND status = 'active'`,
+      [userId, projectId, name.trim()]
+    );
+    if (nameDupeCheck.rowCount > 0) {
+      return res.status(409).json({
+        error: `A product named "${name.trim()}" already exists in this project. Product names must be unique within a project.`,
+      });
     }
 
     // Generate readable unique slug
@@ -734,7 +774,7 @@ exports.bulkUploadProducts = async (req, res, next) => {
 
   try {
     const projectCheck = await db.query(
-      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2 AND status = \'active\'',
       [projectId, userId]
     );
     if (projectCheck.rowCount === 0) {
@@ -742,7 +782,7 @@ exports.bulkUploadProducts = async (req, res, next) => {
     }
 
     const { rows, warnings } = await parseBulkUploadRows(req.file.buffer);
-    const rowErrors = await validateBulkUploadRows(rows, projectId);
+    const rowErrors = await validateBulkUploadRows(rows, projectId, userId);
     if (rowErrors.length > 0) {
       return res.status(400).json({
         error: 'Bulk upload contains invalid rows.',
@@ -752,9 +792,9 @@ exports.bulkUploadProducts = async (req, res, next) => {
     }
 
     const transformedProducts = await transformBulkRows(rows, projectId, userId);
-    const { insertedCount, skippedRows } = await bulkUploadProductsToDb(transformedProducts);
+    const { insertedCount, insertedProducts, skippedRows } = await bulkUploadProductsToDb(transformedProducts);
 
-    return res.status(insertedCount > 0 ? 201 : 200).json({ insertedCount, skippedRows, warnings });
+    return res.status(insertedCount > 0 ? 201 : 200).json({ insertedCount, insertedProducts, skippedRows, warnings });
   } catch (error) {
     console.error('Bulk upload failed:', error);
     return res.status(400).json({ error: error.message || 'Bulk upload failed.' });
@@ -767,7 +807,7 @@ exports.getIncompleteProducts = async (req, res, next) => {
 
   try {
     const projectCheck = await db.query(
-      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2 AND status = \'active\'',
       [projectId, userId]
     );
     if (projectCheck.rowCount === 0) {
@@ -777,7 +817,7 @@ exports.getIncompleteProducts = async (req, res, next) => {
     const result = await db.query(
       `SELECT id, project_id, name, tagline, category, brand, sku, thumbnail_url, created_at, updated_at
        FROM products
-       WHERE project_id = $1 AND user_id = $2 AND is_published = false AND model_url IS NULL
+       WHERE project_id = $1 AND user_id = $2 AND is_published = false AND model_url IS NULL AND status = 'active'
        ORDER BY created_at ASC`,
       [projectId, userId]
     );
@@ -802,7 +842,7 @@ exports.attachProductModel = async (req, res, next) => {
     const result = await db.query(
       `UPDATE products
        SET model_url = $1, updated_at = NOW()
-       WHERE id = $2 AND user_id = $3 AND is_published = false
+       WHERE id = $2 AND user_id = $3 AND is_published = false AND status = 'active'
        RETURNING *`,
       [modelUrl.trim(), id, userId]
     );
@@ -864,7 +904,7 @@ exports.updateProduct = async (req, res, next) => {
     const productCheck = await db.query(
       `SELECT p.id, p.project_id, p.name, p.tagline, p.description, p.category, p.brand, p.features, p.specs, p.ai_generation_status,
               (SELECT COUNT(*) FROM product_embeddings WHERE product_id = p.id) as embedding_count
-       FROM products p WHERE p.id = $1 AND p.user_id = $2`,
+       FROM products p WHERE p.id = $1 AND p.user_id = $2 AND p.status = 'active'`,
       [id, userId]
     );
     if (productCheck.rowCount === 0) {
@@ -874,7 +914,7 @@ exports.updateProduct = async (req, res, next) => {
     const oldProduct = productCheck.rows[0];
 
     const projectCheck = await db.query(
-      'SELECT id FROM projects WHERE id = $1 AND user_id = $2',
+      'SELECT id FROM projects WHERE id = $1 AND user_id = $2 AND status = \'active\'',
       [projectId, userId]
     );
     if (projectCheck.rowCount === 0) {
@@ -887,6 +927,17 @@ exports.updateProduct = async (req, res, next) => {
     );
     if (slugCheck.rowCount > 0) {
       return res.status(400).json({ error: 'Slug is already in use' });
+    }
+
+    // Enforce: one project cannot contain two active products with the same name (case-insensitive)
+    const nameDupeCheck = await db.query(
+      `SELECT id FROM products WHERE user_id = $1 AND project_id = $2 AND LOWER(name) = LOWER($3) AND id <> $4 AND status = 'active'`,
+      [userId, projectId, name.trim(), id]
+    );
+    if (nameDupeCheck.rowCount > 0) {
+      return res.status(409).json({
+        error: `A product named "${name.trim()}" already exists in this project. Product names must be unique within a project.`,
+      });
     }
 
     const result = await db.query(
@@ -910,7 +961,7 @@ exports.updateProduct = async (req, res, next) => {
         qr_label = $17,
         slug = $18,
         updated_at = NOW()
-       WHERE id = $19 AND user_id = $20
+       WHERE id = $19 AND user_id = $20 AND status = 'active'
        RETURNING *`,
       [
         projectId,
@@ -971,7 +1022,7 @@ exports.publishProduct = async (req, res, next) => {
   try {
     // Validate product ownership
     const productCheck = await db.query(
-      'SELECT id, name, slug, project_id, is_published FROM products WHERE id = $1 AND user_id = $2',
+      'SELECT id, name, slug, project_id, is_published FROM products WHERE id = $1 AND user_id = $2 AND status = \'active\'',
       [id, userId]
     );
     if (productCheck.rowCount === 0) {
@@ -1004,7 +1055,7 @@ exports.publishProduct = async (req, res, next) => {
 
     // Set is_published = true
     await db.query(
-      'UPDATE products SET is_published = true, updated_at = NOW() WHERE id = $1',
+      'UPDATE products SET is_published = true, updated_at = NOW() WHERE id = $1 AND status = \'active\'',
       [product.id]
     );
 
@@ -1047,3 +1098,154 @@ exports.publishProduct = async (req, res, next) => {
     next(error);
   }
 };
+
+// DELETE /api/products/:id
+exports.deleteProduct = async (req, res, next) => {
+  const { id } = req.params;
+  const { userId } = req.user;
+
+  try {
+    // 1. Verify product ownership and active status
+    const productCheck = await db.query(
+      'SELECT id, name, project_id FROM products WHERE id = $1 AND user_id = $2 AND status = \'active\'',
+      [id, userId]
+    );
+
+    if (productCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'Product not found or already deleted' });
+    }
+
+    const product = productCheck.rows[0];
+
+    // 2. Soft-delete the product (enforces ownership safety check)
+    await db.query(
+      `UPDATE products
+       SET status = 'deleted',
+           deleted_at = NOW(),
+           deleted_by = $1,
+           purge_at = NOW() + INTERVAL '7 days',
+           updated_at = NOW()
+       WHERE id = $2 AND user_id = $1`,
+      [userId, id]
+    );
+
+    return res.json({
+      success: true,
+      message: `Product "${product.name}" has been successfully deleted.`,
+    });
+  } catch (error) {
+    console.error('Error soft-deleting product:', error);
+    next(error);
+  }
+};
+
+// GET /api/products/trash
+exports.getDeletedProducts = async (req, res, next) => {
+  const { userId } = req.user;
+
+  try {
+    const result = await db.query(
+      `SELECT
+         p.id,
+         p.name,
+         p.category,
+         p.brand,
+         p.thumbnail_url,
+         p.deleted_at,
+         p.purge_at,
+         p.project_id,
+         proj.name AS project_name,
+         u.name    AS deleted_by_name
+       FROM products p
+       JOIN projects proj ON proj.id = p.project_id
+       LEFT JOIN users u  ON u.id    = p.deleted_by
+       WHERE p.user_id = $1 AND p.status = 'deleted'
+       ORDER BY p.deleted_at DESC`,
+      [userId]
+    );
+
+    return res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching deleted products:', error);
+    next(error);
+  }
+};
+
+// POST /api/products/:id/restore
+exports.restoreProduct = async (req, res, next) => {
+  const { id } = req.params;
+  const { userId } = req.user;
+
+  try {
+    // 1. Fetch the deleted product (must belong to this user)
+    const productCheck = await db.query(
+      `SELECT id, name, project_id FROM products WHERE id = $1 AND user_id = $2 AND status = 'deleted'`,
+      [id, userId]
+    );
+
+    if (productCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'Deleted product not found or access denied' });
+    }
+
+    const product = productCheck.rows[0];
+
+    // 2. Ensure parent project is active (cannot restore into a deleted project)
+    const projectCheck = await db.query(
+      `SELECT id, name FROM projects WHERE id = $1 AND user_id = $2 AND status = 'active'`,
+      [product.project_id, userId]
+    );
+
+    if (projectCheck.rowCount === 0) {
+      return res.status(409).json({
+        error: 'The parent project for this product has been deleted. Restore the project first before restoring individual products.',
+      });
+    }
+
+    // 3. Check for naming conflict against other active products in the same project
+    const conflict = await db.query(
+      `SELECT id FROM products
+       WHERE user_id = $1 AND project_id = $2 AND LOWER(name) = LOWER($3) AND status = 'active'`,
+      [userId, product.project_id, product.name]
+    );
+
+    if (conflict.rowCount > 0) {
+      return res.status(409).json({
+        error: `An active product named "${product.name}" already exists in this project. Rename or delete that product first before restoring this one.`,
+      });
+    }
+
+    // 4. Restore product and re-activate QR code atomically
+    await db.query('BEGIN');
+
+    const result = await db.query(
+      `UPDATE products
+       SET status     = 'active',
+           deleted_at = NULL,
+           deleted_by = NULL,
+           purge_at   = NULL,
+           updated_at = NOW()
+       WHERE id = $1 AND user_id = $2
+       RETURNING *`,
+      [id, userId]
+    );
+
+    // Re-activate associated QR code (if any)
+    await db.query(
+      `UPDATE qr_codes SET is_active = true, updated_at = NOW() WHERE product_id = $1`,
+      [id]
+    );
+
+    await db.query('COMMIT');
+
+    return res.json({
+      success: true,
+      message: `Product "${product.name}" has been restored successfully.`,
+      product: result.rows[0],
+    });
+  } catch (error) {
+    await db.query('ROLLBACK');
+    console.error('Error restoring product:', error);
+    next(error);
+  }
+};
+

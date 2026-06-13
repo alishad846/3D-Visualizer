@@ -31,14 +31,14 @@ exports.getProductById = async (req, res, next) => {
       result = await db.query(
         `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
-         WHERE id = $1`,
+         WHERE id = $1 AND is_published = true AND status = 'active'`,
         [productId]
       );
     } else {
       result = await db.query(
         `SELECT ${PUBLIC_PRODUCT_FIELDS}
          FROM products
-         WHERE slug = $1 AND is_published = true`,
+         WHERE slug = $1 AND is_published = true AND status = 'active'`,
         [productId]
       );
     }
@@ -88,7 +88,8 @@ exports.getProductsForComparison = async (req, res, next) => {
       `SELECT ${PUBLIC_PRODUCT_FIELDS}
        FROM products
        WHERE id = ANY($1::uuid[])
-       AND is_published = true`,
+       AND is_published = true
+       AND status = 'active'`,
       [ids]
     );
 
@@ -110,7 +111,7 @@ exports.getQrCodeByToken = async (req, res, next) => {
 
   try {
     const result = await db.query(
-      `SELECT q.*, p.slug, p.is_published 
+      `SELECT q.*, p.slug, p.is_published, p.status 
        FROM qr_codes q
        JOIN products p ON q.product_id = p.id
        WHERE q.qr_token = $1
@@ -125,6 +126,10 @@ exports.getQrCodeByToken = async (req, res, next) => {
 
     const qrCode = result.rows[0];
 
+    if (qrCode.status === 'deleted') {
+      return res.status(400).json({ error: 'This product is unavailable' });
+    }
+
     // Atomically increment scan count
     await db.query(
       'UPDATE qr_codes SET scan_count = scan_count + 1, updated_at = NOW() WHERE id = $1',
@@ -134,7 +139,7 @@ exports.getQrCodeByToken = async (req, res, next) => {
     // Log analytics scan entry
     const userAgent = req.headers['user-agent'] || '';
     const deviceType = /Mobi|Android|iPhone|iPad|iPod/i.test(userAgent) ? 'mobile' : 'desktop';
-    const deviceOsMatch = userAgent.match(/Android|iPhone|iPad|iPod|Windows|Macintosh|Linux|CrOS/i);
+    const deviceOsMatch = userAgent.match(/Android|iPhone|iPad|iPod/i);
     const browserMatch = userAgent.match(/Chrome|Safari|Firefox|Edg|Opera|SamsungBrowser|CriOS|FxiOS/i);
 
     const deviceOs = deviceOsMatch ? deviceOsMatch[0] : 'unknown';
@@ -174,7 +179,7 @@ exports.logScan = async (req, res, next) => {
     // If slug is provided instead of ID, resolve ID
     if (!isUuid(productId)) {
       const slugRes = await db.query(
-        'SELECT id FROM products WHERE slug = $1 AND is_published = true',
+        'SELECT id FROM products WHERE slug = $1 AND is_published = true AND status = \'active\'',
         [productId]
       );
       if (slugRes.rowCount === 0) {
@@ -183,7 +188,7 @@ exports.logScan = async (req, res, next) => {
       resolvedProductId = slugRes.rows[0].id;
     } else {
       const productRes = await db.query(
-        'SELECT id FROM products WHERE id = $1',
+        'SELECT id FROM products WHERE id = $1 AND is_published = true AND status = \'active\'',
         [productId]
       );
       if (productRes.rowCount === 0) {

@@ -138,3 +138,65 @@ module.exports = {
   sendPasswordResetEmail,
   sendTwoFactorEmail,
 };
+
+function buildTwoFactorEmail({ code, expiryMinutes }) {
+  const escapedCode = code.replace(/"/g, '&quot;');
+
+  return `
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:32px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+                <tr>
+                  <td style="background:#05050a;padding:28px 32px;color:#ffffff;">
+                    <h1 style="margin:0;font-size:24px;line-height:1.2;">Your ScanVista 2FA Verification Code</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:32px;">
+                    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">Hello,</p>
+                    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">To complete your sign-in, please use the following 6-digit verification code:</p>
+                    <div style="background:#f3f4f6;border-radius:12px;padding:20px;text-align:center;margin:24px 0;">
+                      <span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:bold;letter-spacing:6px;color:#05050a;">${escapedCode}</span>
+                    </div>
+                    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#4b5563;">This code is valid for exactly <strong>${expiryMinutes} minutes</strong> and can only be used once.</p>
+                    <p style="margin:0;font-size:14px;line-height:1.6;color:#6b7280;">If you did not attempt to sign in to your ScanVista account, you can safely ignore this email.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
+async function sendTwoFactorCodeEmail({ to, code, expiryMinutes }) {
+  const transporter = createTransporter();
+  const subject = 'Your ScanVista 2FA Verification Code';
+  const html = buildTwoFactorEmail({ code, expiryMinutes });
+
+  if (!transporter) {
+    if (isProduction) {
+      throw new Error('SMTP is not configured');
+    }
+    console.info('[mail] SMTP is not configured. Two-Factor Verification Code is:', code);
+    return { skipped: true };
+  }
+
+  return transporter.sendMail({
+    from: SMTP_EMAIL,
+    to,
+    subject,
+    html,
+  });
+}
+
+module.exports = {
+  sendPasswordResetEmail,
+  sendTwoFactorCodeEmail,
+};

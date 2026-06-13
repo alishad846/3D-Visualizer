@@ -1,4 +1,4 @@
-import { publicRequest, authRequest } from './client';
+import { publicRequest } from './client';
 
 export async function registerUser({ name, email, password }) {
   const res = await publicRequest('/auth/register', {
@@ -17,16 +17,6 @@ export async function loginUser({ email, password }) {
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || 'Login failed');
-  return data;
-}
-
-export async function verifyTwoFactor({ email, otp }) {
-  const res = await publicRequest('/auth/verify-2fa', {
-    method: 'POST',
-    body: JSON.stringify({ email, otp }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Invalid OTP');
   return data;
 }
 
@@ -65,45 +55,23 @@ export async function logoutUser() {
   }
 }
 
-// --- Security Settings ---
-
-export async function changePassword(currentPassword, newPassword) {
-  const res = await authRequest('/auth/change-password', {
+export async function verifyTwoFactor({ userId, code }) {
+  const res = await publicRequest('/auth/verify-2fa', {
     method: 'POST',
-    body: JSON.stringify({ currentPassword, newPassword }),
+    body: JSON.stringify({ userId, code }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to change password');
+  if (!res.ok) throw new Error(data.error || 'Two-Factor Verification failed');
   return data;
 }
 
-export async function updateTwoFactor(enabled) {
-  const res = await authRequest('/auth/update-2fa', {
-    method: 'POST',
+export async function toggleTwoFactorSetting(enabled) {
+  const { authRequest } = await import('./client');
+  const res = await authRequest('/auth/two-factor', {
+    method: 'PUT',
     body: JSON.stringify({ enabled }),
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to update 2FA');
-  return data;
-}
-
-export async function getSessions() {
-  const res = await authRequest('/auth/sessions', { method: 'GET' });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to fetch sessions');
-  return data.sessions;
-}
-
-export async function logoutAllSessions() {
-  const res = await authRequest('/auth/sessions/logout-all', { method: 'POST' });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to logout other sessions');
-  return data;
-}
-
-export async function logoutSession(id) {
-  const res = await authRequest(`/auth/sessions/${id}/logout`, { method: 'POST' });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Failed to logout session');
+  if (!res.ok) throw new Error(data.error || 'Failed to toggle Two-Factor Authentication');
   return data;
 }

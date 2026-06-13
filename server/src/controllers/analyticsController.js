@@ -953,7 +953,7 @@ exports.getProjectProducts = async (req, res) => {
            WHERE qs.scanned_at >= NOW() - INTERVAL '30 days'
          ) AS scans_last_30_days
        FROM projects proj
-       LEFT JOIN products p ON p.project_id = proj.id
+       LEFT JOIN products p ON p.project_id = proj.id AND p.status = 'active'
        LEFT JOIN qr_scans qs ON qs.product_id = p.id
          AND qs.scanned_at >= NOW() - INTERVAL '${rangeInterval}'
        WHERE proj.id = $1
@@ -979,6 +979,7 @@ exports.getProjectProducts = async (req, res) => {
          AND qs.scanned_at >= NOW() - INTERVAL '7 days'
        WHERE p.project_id = $1
        AND p.user_id = $2
+       AND p.status = 'active'
        GROUP BY p.id, day
        ORDER BY p.id, day ASC`,
       [projectId, userId]

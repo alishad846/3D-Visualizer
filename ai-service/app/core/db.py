@@ -68,7 +68,7 @@ class Database:
             SELECT id, name, tagline, description, category, brand, sku, 
                    features, specs, price, currency, model_url, is_published
             FROM products
-            WHERE id = $1::UUID
+            WHERE id = $1::UUID AND status = 'active'
         """
         row = await self.fetch_one(query, product_id)
         if not row:
@@ -88,7 +88,7 @@ class Database:
             SELECT id, name, tagline, description, category, brand, sku, 
                    features, specs, price, currency, model_url, is_published
             FROM products
-            WHERE is_published = TRUE
+            WHERE is_published = TRUE AND status = 'active'
         """
         rows = await self.fetch_all(query)
         products = []
@@ -116,8 +116,9 @@ class Database:
     async def get_all_embeddings(self):
         """Fetch all product embeddings mapped to product IDs."""
         query = """
-            SELECT product_id, embedding
-            FROM product_embeddings
+            SELECT pe.product_id, pe.embedding
+            FROM product_embeddings pe
+            JOIN products p ON pe.product_id = p.id AND p.status = 'active'
         """
         rows = await self.fetch_all(query)
         return {str(row["product_id"]): row["embedding"] for row in rows}

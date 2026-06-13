@@ -113,3 +113,28 @@ export const bulkUploadProducts = async (projectId, file) => {
   }
   return data;
 };
+
+export const deleteProduct = async (id) => {
+  const res = await authRequest(`/products/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete product');
+  return data;
+};
+
+export const fetchDeletedProducts = async () => {
+  const res = await authRequest('/products/trash');
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch deleted products');
+  return data;
+};
+
+export const restoreProduct = async (id) => {
+  const res = await authRequest(`/products/${encodeURIComponent(id)}/restore`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to restore product');
+  return data;
+};

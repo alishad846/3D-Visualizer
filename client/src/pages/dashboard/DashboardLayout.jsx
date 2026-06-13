@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { logoutUser } from '../../api/auth';
 import { useWorkspaceStore } from '../../store/workspaceStore';
-import { useNotificationStore } from '../../store/notificationStore';
-import { useSettingsStore } from '../../store/settingsStore';
 import {
   LayoutDashboard,
   User,
@@ -21,7 +19,10 @@ import {
   LogOut,
   ChevronDown,
   UploadCloud,
+  Trash2,
 } from 'lucide-react';
+import { fetchDeletedProjects } from '../../api/projects';
+import { fetchDeletedProducts } from '../../api/products';
 
 export default function DashboardLayout() {
   const location = useLocation();
@@ -44,71 +45,18 @@ export default function DashboardLayout() {
   const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
   const [createProductOpen, setCreateProductOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [helpModalContent, setHelpModalContent] = useState(null);
-
-  const { notifications, unreadCount, markAllAsRead, clearNotifications } = useNotificationStore();
-  const alertsEnabled = useSettingsStore(s => s.preferences.alerts);
+  const [trashCount, setTrashCount] = useState(0);
 
   useEffect(() => {
     fetchProjects();
   }, [fetchProjects]);
 
-  const notificationsRef = useRef(null);
-  const helpRef = useRef(null);
-  const projectDropdownRef = useRef(null);
-
+  // Fetch trash count to show badge
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
-        setNotificationsOpen(false);
-      }
-      if (helpRef.current && !helpRef.current.contains(event.target)) {
-        setHelpOpen(false);
-      }
-      if (projectDropdownRef.current && !projectDropdownRef.current.contains(event.target)) {
-        setProjectDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    Promise.all([fetchDeletedProjects(), fetchDeletedProducts()])
+      .then(([proj, prod]) => setTrashCount(proj.length + prod.length))
+      .catch(() => {}); // silent fail — badge is cosmetic
   }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Esc: Close all dropdowns and modals
-      if (e.key === 'Escape') {
-        setHelpModalContent(null);
-        setHelpOpen(false);
-        setNotificationsOpen(false);
-        setProjectDropdownOpen(false);
-        setCreateProductOpen(false);
-        setAnalyticsOpen(false);
-      }
-      
-      // Ctrl + N: New Project
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
-        e.preventDefault();
-        navigate('/add-project');
-      }
-
-      // Ctrl + K: Search Projects (Open Dropdown)
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setProjectDropdownOpen(true);
-      }
-
-      // ?: Open Help
-      if (e.key === '?' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-        e.preventDefault();
-        setHelpOpen(true);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
 
   const displayName = user?.name || 'User';
   const displayEmail = user?.email || '';
@@ -126,6 +74,7 @@ export default function DashboardLayout() {
     { icon: Layers, label: 'Products', path: '/dashboard/products' },
     { icon: UploadCloud, label: 'Incomplete Models', path: '/dashboard/incomplete-models' },
     { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
+    { icon: Trash2, label: 'Trash', path: '/dashboard/trash', badge: trashCount },
   ];
   const isProductAnalysisActive = location.pathname === '/dashboard/analytics';
 
@@ -167,7 +116,12 @@ export default function DashboardLayout() {
                   )}
                   <item.icon className={`w-[18px] h-[18px] transition-colors ${isActive ? 'text-[#00F0FF]' : 'text-slate-400 group-hover:text-slate-200'
                     }`} />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {item.badge > 0 && (
+                    <span className="text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full leading-none">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -326,7 +280,12 @@ export default function DashboardLayout() {
                         <span className="absolute left-0 top-1/4 bottom-1/4 w-[3px] bg-[#00F0FF] rounded-r" />
                       )}
                       <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-[#00F0FF]' : 'text-slate-400'}`} />
-                      {item.label}
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge > 0 && (
+                        <span className="text-[10px] font-black bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full leading-none">
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -473,12 +432,13 @@ export default function DashboardLayout() {
               {location.pathname === '/dashboard' && 'Creator Side'}
               {location.pathname === '/dashboard/analytics' && 'Product Analysis'}
               {location.pathname === '/dashboard/analytics/project' && 'Project Analysis'}
+              {location.pathname === '/dashboard/trash' && 'Recently Deleted'}
             </h1>
 
             {/* WORKSPACE SWITCHER */}
             <div className="flex items-center gap-2 md:ml-4 select-none">
               {/* Project Select */}
-              <div className="relative" ref={projectDropdownRef}>
+              <div className="relative">
                 <button
                   type="button"
                   onClick={() => {
@@ -556,81 +516,15 @@ export default function DashboardLayout() {
           {/* Action Tools */}
           <div className="flex items-center gap-3 lg:gap-4 shrink-0">
             {/* Notifications */}
-            <div className="relative" ref={notificationsRef}>
-              <button 
-                onClick={() => {
-                  setNotificationsOpen(!notificationsOpen);
-                  if (!notificationsOpen && unreadCount > 0) markAllAsRead();
-                }}
-                className="relative bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white p-2.5 rounded-full hover:bg-[#1a263f] transition-all"
-              >
-                <Bell className="w-[18px] h-[18px]" />
-                {alertsEnabled && unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 bg-[#00F0FF] w-2 h-2 rounded-full shadow-[0_0_6px_rgba(0,240,255,0.8)]" />
-                )}
-              </button>
-
-              {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-[#0c1324] border border-[#1d2d4a] rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
-                  <div className="p-4 border-b border-[#1a2c4d]/50 flex justify-between items-center bg-[#11192b]/50">
-                    <h3 className="text-sm font-bold text-white">Notifications</h3>
-                    <button onClick={clearNotifications} className="text-xs text-[#00F0FF] hover:underline">
-                      Clear All
-                    </button>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <p className="text-xs text-slate-500 text-center py-6">No new notifications</p>
-                    ) : (
-                      notifications.map(notif => (
-                        <div key={notif.id} className={`p-4 border-b border-[#1d2d4a]/50 text-sm ${notif.read ? 'text-slate-400' : 'text-slate-200 bg-[#1a263f]/30'}`}>
-                          <p>{notif.text}</p>
-                          <p className="text-[10px] text-slate-500 mt-1">{new Date(notif.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            <button className="relative bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white p-2.5 rounded-full hover:bg-[#1a263f] transition-all">
+              <Bell className="w-[18px] h-[18px]" />
+              <span className="absolute top-1.5 right-1.5 bg-[#00F0FF] w-2 h-2 rounded-full shadow-[0_0_6px_rgba(0,240,255,0.8)]" />
+            </button>
 
             {/* Help */}
-            <div className="relative" ref={helpRef}>
-              <button 
-                onClick={() => setHelpOpen(!helpOpen)}
-                className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white p-2.5 rounded-full hover:bg-[#1a263f] transition-all"
-              >
-                <HelpCircle className="w-[18px] h-[18px]" />
-              </button>
-
-              {helpOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-[#0c1324] border border-[#1d2d4a] rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl">
-                  <div className="p-3 border-b border-[#1a2c4d]/50 bg-[#11192b]/50">
-                    <h3 className="text-sm font-bold text-white">Help & Support</h3>
-                  </div>
-                  <div className="p-2 space-y-1">
-                    <button 
-                      onClick={() => { setHelpModalContent('docs'); setHelpOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-[#1a263f]/60 transition-colors"
-                    >
-                      Documentation
-                    </button>
-                    <button 
-                      onClick={() => { setHelpModalContent('shortcuts'); setHelpOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-[#1a263f]/60 transition-colors"
-                    >
-                      Keyboard Shortcuts
-                    </button>
-                    <button 
-                      onClick={() => { setHelpModalContent('contact'); setHelpOpen(false); }}
-                      className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-[#1a263f]/60 transition-colors"
-                    >
-                      Contact Support
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button className="bg-[#11192b] border border-[#1d2d4a] text-slate-300 hover:text-white p-2.5 rounded-full hover:bg-[#1a263f] transition-all">
+              <HelpCircle className="w-[18px] h-[18px]" />
+            </button>
 
             {/* + New Project Button */}
             <button
@@ -648,58 +542,6 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-
-      {/* Help Modal */}
-      {helpModalContent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setHelpModalContent(null)} />
-          <div className="relative w-full max-w-lg bg-[#0b101e] border border-[#1a253c] rounded-2xl shadow-2xl overflow-hidden animate-fade-in">
-            <div className="flex items-center justify-between p-6 border-b border-[#1a253c]">
-              <h2 className="text-xl font-bold text-white font-display">
-                {helpModalContent === 'docs' && 'Documentation'}
-                {helpModalContent === 'shortcuts' && 'Keyboard Shortcuts'}
-                {helpModalContent === 'contact' && 'Contact Support'}
-              </h2>
-              <button onClick={() => setHelpModalContent(null)} className="text-slate-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 text-slate-300">
-              {helpModalContent === 'docs' && (
-                <div className="space-y-4">
-                  <p className="text-sm">Welcome to ScanVista documentation! Detailed guides on how to use AR features, manage products, and perform deep analytics will be published here soon.</p>
-                  <div className="bg-[#11192b] p-4 rounded-xl border border-[#1a253c]">
-                    <p className="text-xs text-slate-400">Currently in Beta phase. Full docs release is scheduled for next month.</p>
-                  </div>
-                </div>
-              )}
-              {helpModalContent === 'shortcuts' && (
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center"><span className="text-sm">Search Projects</span><kbd className="bg-[#11192b] px-3 py-1 rounded-lg text-xs border border-[#1a253c]">Ctrl + K</kbd></div>
-                  <div className="flex justify-between items-center"><span className="text-sm">New Project</span><kbd className="bg-[#11192b] px-3 py-1 rounded-lg text-xs border border-[#1a253c]">Ctrl + N</kbd></div>
-                  <div className="flex justify-between items-center"><span className="text-sm">Open Help</span><kbd className="bg-[#11192b] px-3 py-1 rounded-lg text-xs border border-[#1a253c]">?</kbd></div>
-                  <div className="flex justify-between items-center"><span className="text-sm">Close Modals</span><kbd className="bg-[#11192b] px-3 py-1 rounded-lg text-xs border border-[#1a253c]">Esc</kbd></div>
-                </div>
-              )}
-              {helpModalContent === 'contact' && (
-                <div className="space-y-4">
-                  <p className="text-sm">Need help? Drop us a message below and our support team will get back to you.</p>
-                  <textarea className="w-full bg-[#11192b] border border-[#1a253c] rounded-xl p-3 text-sm text-white focus:outline-none focus:border-[#00F0FF] transition-colors" rows="4" placeholder="How can we help you?"></textarea>
-                  <button 
-                    className="w-full bg-[#00F0FF] text-black font-bold py-3 px-6 rounded-xl text-sm transition-all hover:bg-[#00D8E6]" 
-                    onClick={() => { 
-                      alert('Message sent successfully! Our team will contact you soon.'); 
-                      setHelpModalContent(null); 
-                    }}
-                  >
-                    Send Message
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
