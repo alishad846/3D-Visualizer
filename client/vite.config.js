@@ -27,6 +27,17 @@ export default defineConfig({
     }
   ],
 
+  server: {
+    host: true,
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true
+      }
+    }
+  },
+
   // ── Three.js deduplication ──────────────────────────────────────
   // "@react-three/fiber" and "@react-three/drei" each resolve their
   // own copy of the "three" package from their own node_modules. When

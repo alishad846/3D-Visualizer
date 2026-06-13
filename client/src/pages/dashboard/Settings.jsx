@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { useSettingsStore } from '../../store/settingsStore';
 import { 
   User, 
   Shield, 
@@ -57,35 +58,25 @@ export default function Settings() {
   const profileAvatar = user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Creator')}&background=0b101e&color=00F0FF&bold=true&size=200`;
 
   // --- Profile State ---
-  const [profileData, setProfileData] = useState(() => {
-    const saved = localStorage.getItem('scanvista-settings-profile');
-    return saved ? JSON.parse(saved) : {
-      fullName: user?.name || 'Creator',
-      email: user?.email || 'you@domain.com',
-      avatar: profileAvatar
-    };
+  const [profileData, setProfileData] = useState({
+    fullName: user?.name || 'Creator',
+    email: user?.email || '',
+    avatar: profileAvatar
   });
   
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('scanvista-settings-profile');
-    if (saved) {
-      setProfileData(JSON.parse(saved));
-      return;
-    }
-
     if (user) {
       setProfileData({
         fullName: user.name || 'Creator',
-        email: user.email || 'you@domain.com',
+        email: user.email || '',
         avatar: user.avatar || profileAvatar
       });
     }
-  }, [user]);
+  }, [user, profileAvatar]);
 
   const handleProfileSave = () => {
-    localStorage.setItem('scanvista-settings-profile', JSON.stringify(profileData));
     if (accessToken && typeof setAuth === 'function') {
       const updatedUser = user
         ? {
@@ -101,7 +92,7 @@ export default function Settings() {
           };
       setAuth(accessToken, updatedUser);
     }
-    showToast('Profile updated successfully');
+    showToast('Profile updated temporarily (Database update not yet implemented)');
   };
 
   const handleAvatarChange = (e) => {
@@ -188,21 +179,8 @@ export default function Settings() {
   };
 
   // --- Preferences State ---
-  const [preferences, setPreferences] = useState(() => {
-    const saved = localStorage.getItem('scanvista-settings-prefs');
-    return saved ? JSON.parse(saved) : {
-      language: 'English (US)',
-      alerts: true,
-      completion: false,
-      newsletter: true
-    };
-  });
-
-  const updatePref = (key, value) => {
-    const updated = { ...preferences, [key]: value };
-    setPreferences(updated);
-    localStorage.setItem('scanvista-settings-prefs', JSON.stringify(updated));
-  };
+  const preferences = useSettingsStore((s) => s.preferences);
+  const updatePref = useSettingsStore((s) => s.updatePreference);
 
 
   // --- Render Tabs ---

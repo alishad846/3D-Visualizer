@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { View, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import SphereLogo from '../../components/SphereLogo';
-import { loginUser } from '../../api/auth';
+import { loginUser, verifyTwoFactor } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 
 export default function Login() {
@@ -15,16 +15,38 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
+  const [isTwoFactorStep, setIsTwoFactorStep] = useState(false);
+  const [otp, setOtp] = useState('');
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       const data = await loginUser({ email, password });
+      if (data.requiresTwoFactor) {
+        setIsTwoFactorStep(true);
+      } else {
+        setAuth(data.accessToken, data.user);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await verifyTwoFactor({ email, otp });
       setAuth(data.accessToken, data.user);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.message || 'Invalid credentials');
+      setError(err.message || 'Invalid OTP');
     } finally {
       setLoading(false);
     }
@@ -91,62 +113,102 @@ export default function Login() {
         >
           <h2 className="text-3xl font-display font-medium mb-10 text-center tracking-tight">Welcome Back</h2>
               
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-5">
+          {isTwoFactorStep ? (
+            <form onSubmit={handleVerifyOTP} className="space-y-6">
               <div>
+                <p className="text-sm text-[#888] mb-4 text-center">We've sent a 6-digit code to your email. Please enter it below.</p>
                 <input 
-                  id="email"
-                  name="email"
-                  type="email" 
+                  type="text" 
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email Address" 
-                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                  maxLength="6"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000" 
+                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-center tracking-[0.5em] text-2xl font-bold focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
                 />
               </div>
               
-              <div className="relative">
-                <input 
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"} 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password" 
-                  className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
-                />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#888] hover:text-white transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex justify-end text-xs">
-              <Link to="/forgot-password" className="text-[#A0A0A0] hover:text-white transition-colors">Forgot password?</Link>
-            </div>
-
-            {error && (
-              <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
-            )}
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <span className="text-[15px]">Sign In</span>
+              {error && (
+                <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
               )}
-            </button>
-          </form>
+
+              <button 
+                type="submit" 
+                disabled={loading || otp.length < 6}
+                className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-[15px]">Verify & Sign In</span>
+                )}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { setIsTwoFactorStep(false); setOtp(''); }}
+                className="w-full text-xs text-[#888] hover:text-white transition-colors"
+              >
+                Cancel and go back
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-6">
+              <div className="space-y-5">
+                <div>
+                  <input 
+                    id="email"
+                    name="email"
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email Address" 
+                    className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                  />
+                </div>
+                
+                <div className="relative">
+                  <input 
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"} 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password" 
+                    className="w-full bg-transparent border border-[#3A3B40] rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-all text-white placeholder-[#666]"
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#888] hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end text-xs">
+                <Link to="/forgot-password" className="text-[#A0A0A0] hover:text-white transition-colors">Forgot password?</Link>
+              </div>
+
+              {error && (
+                <p className="text-red-400 text-xs text-center -mt-2">{error}</p>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-[#00F0FF] text-black font-semibold py-3.5 rounded-xl flex items-center justify-center hover:bg-[#00D0DD] hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all mt-4 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-[15px]">Sign In</span>
+                )}
+              </button>
+            </form>
+          )}
           
           <p className="mt-8 text-center text-[13px] text-[#A0A0A0]">
             Don't have an account?{' '}

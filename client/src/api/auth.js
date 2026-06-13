@@ -20,6 +20,16 @@ export async function loginUser({ email, password }) {
   return data;
 }
 
+export async function verifyTwoFactor({ email, otp }) {
+  const res = await publicRequest('/auth/verify-2fa', {
+    method: 'POST',
+    body: JSON.stringify({ email, otp }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Invalid OTP');
+  return data;
+}
+
 export async function requestPasswordReset({ email }) {
   const res = await publicRequest('/auth/forgot-password', {
     method: 'POST',

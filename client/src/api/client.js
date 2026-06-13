@@ -63,6 +63,7 @@ export async function apiRequest(path, options = {}, withAuth = false) {
 
   const headers = {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
     ...(options.headers || {}),
     ...(withAuth && accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
   };
@@ -115,7 +116,10 @@ export async function authUpload(path, formData) {
     method: 'POST',
     credentials: 'include',
     body: formData,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: {
+      'ngrok-skip-browser-warning': 'true',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
   });
 
   let { accessToken } = store.getState();

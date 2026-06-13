@@ -34,6 +34,19 @@ async function runMigrations() {
   await db.query(`CREATE INDEX IF NOT EXISTS idx_reset_password_tokens_used ON reset_password_tokens(used);`);
   console.log('Created or verified password reset token table and indexes.');
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS two_factor_tokens (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      otp_hash VARCHAR(255) NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_two_factor_tokens_user_id ON two_factor_tokens(user_id);`);
+  console.log('Created or verified two factor token table and indexes.');
+
   // 1. Add slug column to products if not exists
   await db.query(`
     ALTER TABLE products ADD COLUMN IF NOT EXISTS slug VARCHAR(255);

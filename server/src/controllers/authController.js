@@ -211,6 +211,31 @@ exports.login = async (req, res, next) => {
       [user.id]
     );
 
+    if (user.two_factor_enabled) {
+      // Clean up expired tokens
+      await db.query(`DELETE FROM two_factor_tokens WHERE expires_at < NOW() OR used = true`);
+      
+      const crypto = require('crypto');
+      const otp = crypto.randomInt(100000, 999999).toString();
+      const otpHash = await bcrypt.hash(otp, 10);
+      const expiryMinutes = 10;
+      
+      await db.query(
+        `INSERT INTO two_factor_tokens (user_id, otp_hash, expires_at)
+         VALUES ($1, $2, NOW() + ($3 || ' minutes')::interval)`,
+        [user.id, otpHash, expiryMinutes]
+      );
+      
+      const { sendTwoFactorEmail } = require('../services/mailService');
+      await sendTwoFactorEmail({ to: user.email, otp, expiryMinutes });
+      
+      return res.json({
+        requiresTwoFactor: true,
+        email: user.email,
+        message: 'Two-factor authentication code sent to email.'
+      });
+    }
+
     // 3. Revoke all existing refresh tokens for this user before issuing new ones (Clean Sessions)
     await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
 
@@ -253,6 +278,80 @@ exports.login = async (req, res, next) => {
     return res.json({
       accessToken,
       user: userResponse
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/auth/verify-2fa
+exports.verifyTwoFactor = async (req, res, next) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+  try {
+    const userResult = await db.query('SELECT id, name, email, preferred_language FROM users WHERE email = $1', [email]);
+    if (userResult.rowCount === 0) return res.status(401).json({ error: 'Invalid request' });
+    const user = userResult.rows[0];
+
+    const tokens = await db.query(
+      `SELECT id, otp_hash FROM two_factor_tokens 
+       WHERE user_id = $1 AND used = false AND expires_at > NOW()`, 
+      [user.id]
+    );
+    
+    if (tokens.rowCount === 0) return res.status(401).json({ error: 'Invalid or expired OTP' });
+
+    let validTokenId = null;
+    for (const token of tokens.rows) {
+      const isValid = await bcrypt.compare(otp, token.otp_hash);
+      if (isValid) {
+        validTokenId = token.id;
+        break;
+      }
+    }
+
+    if (!validTokenId) return res.status(401).json({ error: 'Invalid or expired OTP' });
+
+    await db.query('UPDATE two_factor_tokens SET used = true WHERE id = $1', [validTokenId]);
+
+    await db.query('DELETE FROM refresh_tokens WHERE user_id = $1', [user.id]);
+
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const refreshTokenHash = hashRefreshToken(refreshToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const deviceInfo = getDeviceInfo(req);
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+
+    await db.query(
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, device_info, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, refreshTokenHash, expiresAt, deviceInfo, ipAddress]
+    );
+
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions());
+
+    return res.json({
+      accessToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        preferred_language: user.preferred_language
+      }
     });
   } catch (error) {
     next(error);
