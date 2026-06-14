@@ -99,17 +99,18 @@ npm run dev
 
 ## 🚀 Production Deployment (Render)
 
-| Service | URL |
-|--------|-----|
-| Frontend | https://scanvista.onrender.com |
-| API | https://scanvista-api.onrender.com |
+| Service | Render Name | URL |
+|--------|-------------|-----|
+| Frontend | `scanvista` | https://scanvista.onrender.com |
+| API Server | `scanvista-api` | https://scanvista-api.onrender.com |
+| AI Service | `scanvista-ai` | https://scanvista-ai.onrender.com |
 
 1. Push this repo to GitHub.
-2. Render → **New Blueprint** → select repo (`render.yaml` provisions DB + API + static site).
-3. Set `SUPABASE_URL` and `SUPABASE_KEY` on the **scanvista-api** service.
-4. Full checklist: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
+2. Render → **New Blueprint** → select repo (`render.yaml` provisions all services: frontend, API server, and FastAPI AI service).
+3. Configure the environment variables (e.g., `SUPABASE_URL`, `SUPABASE_KEY`, `REDIS_URL`, and `OPENAI_API_KEY`) on the Render dashboard for the respective services.
+4. Full checklist and setup steps: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)
 
-Optional frontend on Vercel: root [`vercel.json`](vercel.json) (API should stay on Render).
+Optional frontend on Vercel: root [`vercel.json`](vercel.json) (API and AI service stay on Render).
 
 ---
 

@@ -7,8 +7,8 @@ Production targets (Render):
 | Frontend | `scanvista` | https://scanvista.onrender.com |
 | API | `scanvista-api` | https://scanvista-api.onrender.com |
 | PostgreSQL | `scanvista-db` | Internal to Render |
+| AI service | `scanvista-ai` | https://scanvista-ai.onrender.com |
 | Admin (later) | `scanvista-admin` | https://scanvista-admin.onrender.com |
-| AI service (later) | `scanvista-ai` | https://scanvista-ai.onrender.com |
 
 ---
 
@@ -55,11 +55,23 @@ In **scanvista-api** → **Environment**:
 | `JWT_REFRESH_SECRET` | Auto-generated | Keep as generated |
 | `DATABASE_URL` | From DB | Linked via blueprint |
 | `CLIENT_URL` | Set in blueprint | `https://scanvista.onrender.com` |
+| `AI_SERVICE_URL` | Yes | `https://scanvista-ai.onrender.com` |
+| `REDIS_URL` | Recommended | Redis connection string (Render cache instance) |
 | `NODE_ENV` | `production` | Set in blueprint |
 
 Create a Supabase bucket named **`models`** (public) or let the server attempt to create it on first upload.
 
-### 4. Verify static site env
+### 4. Set required secrets (AI service)
+
+In **scanvista-ai** → **Environment**:
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `OPENAI_API_KEY` | Yes | OpenAI API secret key |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL (for PGVector recommendations) |
+| `AI_SERVICE_PORT` | `8000` | Pre-configured in blueprint |
+
+### 5. Verify static site env
 
 **scanvista** (frontend) must have:
 
@@ -69,7 +81,7 @@ VITE_API_URL=https://scanvista-api.onrender.com/api
 
 Redeploy the frontend after changing this (Vite inlines env at build time).
 
-### 5. Smoke test
+### 6. Smoke test
 
 - `GET https://scanvista-api.onrender.com/health` → `{ "status": "OK" }`
 - Open `https://scanvista.onrender.com`
@@ -112,9 +124,7 @@ cd .. && npm run dev
 
 ## What is not deployed yet
 
-- **ai-service** (FastAPI) — stubs; deploy later as `scanvista-ai` when voice/AI routes are wired
 - **God Mode admin** — design only; future `scanvista-admin.onrender.com`
-- **Redis** — listed in `docker-compose.yml` but unused by server code
 
 ---
 

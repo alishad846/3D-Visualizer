@@ -16,7 +16,7 @@ const recommendationRoutes = require('./routes/recommendations');
 const notificationRoutes = require('./routes/notifications');
 
 const { errorHandler } = require('./middleware/errorHandler');
-const { rateLimiter } = require('./middleware/rateLimiter');
+const { globalLimiter } = require('./middleware/rateLimiter');
 
 // Register background jobs
 require('./services/purgeService');
@@ -41,7 +41,7 @@ app.use(helmet({
 app.use(cookieParser());
 app.use(express.json());
 app.use(morgan('dev'));
-app.use(rateLimiter);
+app.use(globalLimiter);
 
 // Health check
 app.get('/health', (req, res) => {

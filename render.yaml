@@ -1,9 +1,9 @@
 # ScanVista — Render Blueprint
 
-# Frontend:  https://scanvista.onrender.com
-# Backend:   https://scanvista-api.onrender.com
-#   (Future) Admin: https://scanvista-admin.onrender.com
-#   (Future) AI:    https://scanvista-ai.onrender.com
+# Frontend:   https://scanvista.onrender.com
+# Backend API: https://scanvista-api.onrender.com
+# AI Service:  https://scanvista-ai.onrender.com
+# (Future) Admin: https://scanvista-admin.onrender.com
 
 services:
   # ── Backend API (Node/Express) ───────────────────────────────
@@ -25,8 +25,15 @@ services:
       - key: CLIENT_URL
         value: https://scanvista.onrender.com
 
+      - key: AI_SERVICE_URL
+        value: https://scanvista-ai.onrender.com
+
       # Neon DB connection (MANUAL - set in Render dashboard)
       - key: DATABASE_URL
+        sync: false
+
+      # Redis connection for rate limiting (MANUAL - set in Render dashboard)
+      - key: REDIS_URL
         sync: false
 
       - key: JWT_SECRET
@@ -40,6 +47,27 @@ services:
         sync: false
 
       - key: SUPABASE_KEY
+        sync: false
+
+  # ── AI Service (FastAPI / Python Docker) ───────────────────────
+  - type: web
+    name: scanvista-ai
+    runtime: docker
+    region: oregon
+    plan: free
+    rootDir: ai-service
+    healthCheckPath: /health
+
+    envVars:
+      - key: AI_SERVICE_PORT
+        value: 8000
+
+      # OpenAI API Key (MANUAL - set in Render dashboard)
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # Database connection (MANUAL - set in Render dashboard)
+      - key: DATABASE_URL
         sync: false
 
   # ── Frontend (Vite static site) ───────────────────────────────
