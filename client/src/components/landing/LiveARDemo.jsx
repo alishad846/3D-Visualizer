@@ -7,7 +7,7 @@ export default function LiveARDemo() {
   return (
     <section className="py-32 bg-[#050b14] relative overflow-hidden">
       {/* Background Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00F0FF]/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00F0FF] opacity-[0.02] rounded-full pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-16 items-center">
         
@@ -27,7 +27,7 @@ export default function LiveARDemo() {
             <div className="absolute inset-0 bg-[#0a1523] flex flex-col items-center justify-center overflow-hidden">
               
               {/* Realistic Room Background (simulating camera feed) */}
-              <img src="/images/ar_bg.png" alt="AR Camera Feed" className="absolute inset-0 w-full h-full object-cover filter blur-[2px]" />
+              <img src="/images/ar_bg.png" alt="AR Camera Feed" className="absolute inset-0 w-full h-full object-cover opacity-80" />
 
               {/* Scanning Reticle Animation */}
               <motion.div 
@@ -43,7 +43,7 @@ export default function LiveARDemo() {
                 transition={{ duration: 1.5, delay: 0.5, type: "spring" }}
                 className="absolute inset-0 z-10"
               >
-                <div className="w-48 h-48 bg-gradient-to-br from-[#00F0FF]/20 to-[#b366ff]/20 rounded-full blur-xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+                <div className="w-48 h-48 bg-gradient-to-br from-[#00F0FF] to-[#b366ff] opacity-10 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
                 <div className="absolute inset-0 pointer-events-auto">
                   <ProductCanvas modelUrl="/models/shoe.glb" autoRotate={true} controls={false} />
                 </div>

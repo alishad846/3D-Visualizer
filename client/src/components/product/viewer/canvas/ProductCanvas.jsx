@@ -1,5 +1,6 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useInView } from "framer-motion";
 import { OrbitControls, Environment, ContactShadows } from "@react-three/drei";
 import { Vector3 } from "three";
 import ProductModel from "../model/ProductModel";
@@ -80,6 +81,9 @@ const ProductCanvas = forwardRef(function ProductCanvas({
 }, ref) {
     const controlsRef = useRef(null);
     const cameraRef = useRef(null);
+    const containerRef = useRef(null);
+    const isInView = useInView(containerRef, { margin: "200px" });
+    
     const defaultDistanceRef = useRef(8); // updated by AdaptiveCamera on first render
     const minDistance = 3.5;
     const maxDistance = 60;
@@ -119,20 +123,22 @@ const ProductCanvas = forwardRef(function ProductCanvas({
     }), []);
 
     return (
-        <Canvas
-            dpr={[1, 1.5]}
-            gl={{
-                antialias: true,
-                alpha: true,
-                powerPreference: "high-performance"
-            }}
-            camera={{
-                fov: 40,
-                near: 0.05,
-                far: 200
-            }}
-            style={{ width: "100%", height: "100%" }}
-        >
+        <div ref={containerRef} style={{ width: "100%", height: "100%" }}>
+            <Canvas
+                frameloop={isInView ? "always" : "never"}
+                dpr={[1, 1.2]} // reduced max dpr for lower end devices
+                gl={{
+                    antialias: true,
+                    alpha: true,
+                    powerPreference: "low-power" // prioritize battery/integrated graphics
+                }}
+                camera={{
+                    fov: 40,
+                    near: 0.05,
+                    far: 200
+                }}
+                style={{ width: "100%", height: "100%" }}
+            >
             <AdaptiveCamera defaultDistanceRef={defaultDistanceRef} />
             <ZoomBridge
                 controlsRef={controlsRef}
@@ -172,6 +178,8 @@ const ProductCanvas = forwardRef(function ProductCanvas({
                 scale={10}
                 blur={2.0}
                 far={3}
+                resolution={256}
+                frames={1}
                 color="#000000"
             />
 
@@ -192,6 +200,7 @@ const ProductCanvas = forwardRef(function ProductCanvas({
                 target={[0, 0.8, 0]}
             />
         </Canvas>
+      </div>
     );
 });
 

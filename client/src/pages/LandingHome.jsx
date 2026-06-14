@@ -66,13 +66,29 @@ export default function LandingHome() {
               <BrandMark />
             </button>
 
-            <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-400 lg:flex">
+            <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-400 lg:flex absolute left-1/2 -translate-x-1/2">
               <a href="#showcase" className="hover:text-white transition-colors interactive">Showcase</a>
               <a href="#journey" className="hover:text-white transition-colors interactive">Journey</a>
               <a href="#ar" className="hover:text-white transition-colors interactive">WebAR</a>
               <a href="#analytics" className="hover:text-white transition-colors interactive">Analytics</a>
             </nav>
 
+            <div className="flex items-center gap-4 z-10">
+              {isAuthenticated ? (
+                <Link to="/dashboard" className="px-5 py-2 text-sm font-bold text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors interactive">
+                  Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link to="/login" className="text-sm font-semibold text-slate-300 hover:text-white transition-colors interactive">
+                    Log in
+                  </Link>
+                  <Link to="/register" className="px-5 py-2 text-sm font-bold text-black bg-[#00F0FF] hover:bg-[#00F0FF]/80 shadow-[0_0_15px_rgba(0,240,255,0.4)] rounded-full transition-all interactive">
+                    Sign in
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

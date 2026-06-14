@@ -46,7 +46,7 @@ export default function Testimonials() {
           
           {/* Left: Rotating Avatars */}
           <div className="relative h-[400px] flex items-center justify-center">
-            <div className="absolute inset-0 bg-yellow-500/5 blur-[100px] rounded-full" />
+            <div className="absolute inset-0 bg-yellow-500 opacity-[0.02] rounded-full" />
             
             <div className="relative w-64 h-64">
               {REVIEWS.map((review, i) => {

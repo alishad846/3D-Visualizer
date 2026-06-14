@@ -71,7 +71,7 @@ export default function ComparisonSlider() {
             <div className="absolute top-8 right-8 px-4 py-2 bg-[#00F0FF]/10 backdrop-blur-md rounded-full border border-[#00F0FF]/20 z-20">
               <span className="text-xs font-bold text-[#00F0FF] uppercase tracking-widest">ScanVista 3D</span>
             </div>
-            <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute inset-0 w-full h-full">
               <ProductCanvas modelUrl="/models/headphone.glb" autoRotate={true} />
             </div>
           </motion.div>

@@ -50,11 +50,10 @@ function MessageBubble({ message }) {
     return (
         <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
             <div
-                className={`max-w-[86%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
-                    isUser
+                className={`max-w-[86%] rounded-lg px-3 py-2 text-sm leading-relaxed ${isUser
                         ? "bg-cyan-300 text-slate-950"
                         : "border border-white/10 bg-white/[0.055] text-slate-100"
-                }`}
+                    }`}
             >
                 {message.intent ? (
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">
@@ -287,11 +286,10 @@ export default function ProductAssistantOverlay({
                             <button
                                 type="button"
                                 onClick={isListening ? stopVoiceInput : startVoiceInput}
-                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border transition ${
-                                    isListening
+                                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md border transition ${isListening
                                         ? "border-rose-300/40 bg-rose-400/15 text-rose-100"
                                         : "border-white/10 bg-white/[0.045] text-cyan-100 hover:bg-white/10"
-                                }`}
+                                    }`}
                                 aria-label={isListening ? "Stop voice input" : "Start voice input"}
                             >
                                 {isListening ? <MicOff size={17} /> : <Mic size={17} />}
@@ -302,7 +300,7 @@ export default function ProductAssistantOverlay({
                                 onKeyDown={handleTextareaKeyDown}
                                 rows={1}
                                 placeholder={isListening ? "Listening in English..." : "Ask about specs, usage, or recommendations"}
-                                className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-white outline-none placeholder:text-slate-500"
+                                className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-1 py-2 text-sm leading-relaxed text-white outline-none placeholder:text-slate-500 hide-scrollbar"
                             />
                             <button
                                 type="submit"

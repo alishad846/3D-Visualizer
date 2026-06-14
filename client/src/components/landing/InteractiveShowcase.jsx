@@ -81,13 +81,13 @@ export default function InteractiveShowcase() {
 
             {/* Ambient Background Light based on active category */}
             <motion.div 
-              className="absolute inset-0 opacity-20 blur-[100px] transition-colors duration-1000"
+              className="absolute inset-0 opacity-[0.05] transition-colors duration-1000"
               style={{ backgroundColor: activeCategory.color }}
             />
 
             <AnimatePresence mode="wait">
               <motion.div
-                key={activeCategory.model} // re-render when model changes
+                key={activeCategory.model}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 1.1 }}
