@@ -34,7 +34,8 @@ export default function ScanJourney() {
           end: `+=${track.scrollWidth}`,
           scrub: 1,
           pin: true,
-          anticipatePin: 1
+          anticipatePin: 1,
+          id: 'horizontal-scroll'
         }
       });
 

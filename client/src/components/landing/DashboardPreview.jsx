@@ -84,7 +84,7 @@ export default function DashboardPreview() {
           style={{ perspective: 1000 }}
           className="relative"
         >
-          <div className="absolute inset-0 bg-rose-500/10 blur-[100px] rounded-full pointer-events-none" />
+          <div className="absolute inset-0 bg-rose-500 opacity-[0.05] rounded-full pointer-events-none" />
           
           <div className="relative z-10 bg-[#0a1523] border border-white/10 rounded-3xl p-6 shadow-2xl">
             {/* Mock Header */}

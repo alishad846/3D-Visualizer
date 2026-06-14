@@ -46,7 +46,7 @@ export default function CTA() {
                 animate={{ scale: 1.5, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
                 transition={{ duration: 0.5 }}
-                className="absolute inset-0 bg-gradient-to-r from-[#00F0FF] to-[#b366ff] rounded-full blur-[60px] -z-10"
+                className="absolute inset-0 bg-gradient-to-r from-[#00F0FF] to-[#b366ff] rounded-full opacity-20 -z-10"
               />
             )}
           </AnimatePresence>
@@ -60,10 +60,8 @@ export default function CTA() {
             className="group relative w-48 h-48 rounded-full flex flex-col items-center justify-center bg-black/80 backdrop-blur-xl border border-white/20 shadow-[0_0_50px_rgba(0,240,255,0.2)] interactive"
           >
             {/* Spinning ring */}
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 rounded-full border border-dashed border-white/20"
+            <div 
+              className="absolute inset-0 rounded-full border border-dashed border-white/20 animate-[spin_10s_linear_infinite]"
             />
             
             <span className="text-white font-bold text-lg mb-2">Start Now</span>

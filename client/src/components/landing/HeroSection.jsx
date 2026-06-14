@@ -75,37 +75,9 @@ export default function HeroSection({ onPrimaryClick, onScanClick }) {
 
   return (
     <section className="relative min-h-screen flex flex-col overflow-hidden pt-20">
-      {/* Animated Aurora Background Mesh */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/15 blur-[150px] rounded-full mix-blend-screen animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#b366ff]/15 blur-[150px] rounded-full mix-blend-screen" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-[#00F0FF]/5 blur-[200px] rounded-full mix-blend-screen" />
-      </div>
+      {/* Background Mesh Removed */ }
 
-      {/* Floating QR Particles */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute z-0 text-white/5 pointer-events-none"
-          initial={{
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
-            rotate: 0,
-            scale: Math.random() * 0.5 + 0.5
-          }}
-          animate={{
-            y: [null, Math.random() * -200],
-            rotate: 360,
-          }}
-          transition={{
-            duration: Math.random() * 10 + 10,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        >
-          <QrCode size={120} />
-        </motion.div>
-      ))}
+      {/* Removed heavy floating QR particles for performance */}
 
       <div className="relative z-10 w-full max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center flex-1 my-10">
         
@@ -174,7 +146,7 @@ export default function HeroSection({ onPrimaryClick, onScanClick }) {
           className="relative h-[400px] lg:h-[600px] w-full mt-10 lg:mt-0"
         >
           <div className="absolute inset-0 z-10 pointer-events-auto">
-            <ProductCanvas modelUrl={heroModel} autoRotate={true} />
+            {/* <ProductCanvas modelUrl={heroModel} autoRotate={true} /> */}
           </div>
           
           {/* Glass plate below model */}
