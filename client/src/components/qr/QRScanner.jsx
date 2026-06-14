@@ -44,6 +44,9 @@ export default function QRScanner({ embedded = false }) {
         qrbox: { width: 250, height: 250 },
         supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA],
         aspectRatio: 1.0,
+        videoConstraints: {
+          facingMode: { ideal: "environment" }
+        }
       },
       false
     );

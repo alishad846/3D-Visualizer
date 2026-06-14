@@ -5,10 +5,12 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { refreshSession } from '../api/auth';
 
 export default function ProtectedRoute() {
   const { isAuthenticated, setAuth, setLoading } = useAuthStore();
+  const setPreferences = useSettingsStore(s => s.setPreferences);
   const [checking, setChecking] = useState(!isAuthenticated);
 
   useEffect(() => {
@@ -24,6 +26,9 @@ export default function ProtectedRoute() {
       try {
         const data = await refreshSession();
         setAuth(data.accessToken, data.user);
+        if (data.user?.preferences) {
+          setPreferences(data.user.preferences);
+        }
       } catch {
         // No valid session — will redirect to /login below
       } finally {

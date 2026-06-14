@@ -393,7 +393,7 @@ export default function ProductViewer() {
                 </div>
 
                 {/* AR button — floats above canvas, bottom-right */}
-                <div className={`absolute ${isCompact ? "bottom-28 right-4" : "bottom-24 right-5"} z-30 flex flex-col items-end gap-2`}>
+                <div className={`absolute ${isCompact ? "bottom-52 right-4" : "bottom-40 right-5"} z-30 flex flex-col items-end gap-2`}>
                     {productId ? (
                         <Link
                             to={`/compare/${encodeURIComponent(productId)}`}

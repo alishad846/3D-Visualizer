@@ -59,6 +59,39 @@ function buildPasswordResetEmail({ resetUrl, expiryMinutes }) {
   `;
 }
 
+function buildTwoFactorEmail({ otp, expiryMinutes }) {
+  return `
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#111827;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f7fb;padding:32px 16px;">
+          <tr>
+            <td align="center">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
+                <tr>
+                  <td style="background:#05050a;padding:28px 32px;color:#ffffff;">
+                    <h1 style="margin:0;font-size:24px;line-height:1.2;">Your Two-Factor Authentication Code</h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:32px;">
+                    <p style="margin:0 0 16px;font-size:16px;line-height:1.6;">You are attempting to log in to ScanVista with Two-Factor Authentication enabled.</p>
+                    <p style="margin:0 0 24px;font-size:16px;line-height:1.6;">Here is your 6-digit authentication code (valid for ${expiryMinutes} minutes):</p>
+                    <div style="background:#f3f4f6;border-radius:8px;padding:20px;text-align:center;margin-bottom:24px;">
+                      <span style="font-size:32px;font-weight:bold;letter-spacing:4px;color:#111827;">${otp}</span>
+                    </div>
+                    <p style="margin:0;font-size:14px;line-height:1.6;color:#6b7280;">If you did not attempt to log in, please secure your account and change your password immediately.</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
 async function sendPasswordResetEmail({ to, resetUrl, expiryMinutes }) {
   const transporter = createTransporter();
   const subject = 'Reset your ScanVista password';
@@ -80,8 +113,30 @@ async function sendPasswordResetEmail({ to, resetUrl, expiryMinutes }) {
   });
 }
 
+async function sendTwoFactorEmail({ to, otp, expiryMinutes }) {
+  const transporter = createTransporter();
+  const subject = 'Your ScanVista Login Code';
+  const html = buildTwoFactorEmail({ otp, expiryMinutes });
+
+  if (!transporter) {
+    if (isProduction) {
+      throw new Error('SMTP is not configured');
+    }
+    console.info('[mail] SMTP is not configured. 2FA OTP:', otp);
+    return { skipped: true };
+  }
+
+  return transporter.sendMail({
+    from: SMTP_EMAIL,
+    to,
+    subject,
+    html,
+  });
+}
+
 module.exports = {
   sendPasswordResetEmail,
+  sendTwoFactorEmail,
 };
 
 function buildTwoFactorEmail({ code, expiryMinutes }) {

@@ -13,6 +13,7 @@ const viewerRoutes = require('./routes/viewer');
 const analyticsRoutes = require('./routes/analytics');
 const aiRoutes = require('./routes/ai');
 const recommendationRoutes = require('./routes/recommendations');
+const notificationRoutes = require('./routes/notifications');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { rateLimiter } = require('./middleware/rateLimiter');
@@ -23,14 +24,20 @@ require('./services/purgeService');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(cors({
+  origin: true,
+  credentials: true
+}));
+
 // Render / reverse-proxy: needed for secure cookies and rate-limit IP
 app.set('trust proxy', 1);
 
-app.use(helmet());
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
+app.use(helmet({
+  contentSecurityPolicy: false,
+  xssFilter: false,
+  noSniff: true,
 }));
+
 app.use(cookieParser());
 app.use(express.json());
 app.use(morgan('dev'));
@@ -49,6 +56,7 @@ app.use('/api/viewer', viewerRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler);
 

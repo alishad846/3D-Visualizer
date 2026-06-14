@@ -1,17 +1,49 @@
 import { create } from 'zustand';
 import { fetchMyProjects } from '../api/projects';
-import { fetchProductsByProject } from '../api/products';
+import { fetchProductsByProject, fetchFavorites, toggleFavoriteApi } from '../api/products';
 
 export const useWorkspaceStore = create((set, get) => ({
   projects: [],
   activeProject: null,
   products: [],
   activeProduct: null,
+  favorites: [],
   loadingProjects: false,
   loadingProducts: false,
   error: null,
 
   setProjects: (projects) => set({ projects }),
+  
+  setFavorites: (favorites) => set({ favorites }),
+
+  fetchUserFavorites: async () => {
+    try {
+      const data = await fetchFavorites();
+      set({ favorites: data.favorites || [] });
+    } catch (err) {
+      console.error('Failed to fetch favorites:', err);
+    }
+  },
+
+  toggleFavorite: async (id) => {
+    const state = get();
+    const isFav = state.favorites.includes(id);
+    
+    // Optimistic update
+    set({
+      favorites: isFav 
+        ? state.favorites.filter(fid => fid !== id)
+        : [...state.favorites, id]
+    });
+
+    try {
+      await toggleFavoriteApi(id);
+    } catch (err) {
+      console.error('Failed to toggle favorite on backend:', err);
+      // Revert on error
+      set({ favorites: state.favorites });
+    }
+  },
   
   setActiveProject: (project) => {
     set({ activeProject: project, activeProduct: null, products: [] });

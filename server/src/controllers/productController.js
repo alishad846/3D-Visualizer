@@ -540,7 +540,7 @@ async function bulkUploadProductsToDb(products) {
         skippedRows.push({
           row: product.rowNumber,
           field: 'bulk_upload',
-          error: 'Failed to insert this product batch. Please retry smaller file sizes or check product data.',
+          error: 'Database error: ' + error.message,
           solution: 'Split the upload into smaller files or verify all rows contain valid supported column data.',
         });
       });
@@ -1245,6 +1245,56 @@ exports.restoreProduct = async (req, res, next) => {
   } catch (error) {
     await db.query('ROLLBACK');
     console.error('Error restoring product:', error);
+    next(error);
+  }
+};
+
+// POST /api/products/:id/favorite
+exports.toggleFavorite = async (req, res, next) => {
+  const userId = req.user.userId;
+  const productId = req.params.id;
+
+  try {
+    // Check if it's currently favorited
+    const existing = await db.query(
+      'SELECT * FROM product_favorites WHERE user_id = $1 AND product_id = $2',
+      [userId, productId]
+    );
+
+    let isFavorite = false;
+    if (existing.rowCount > 0) {
+      // Remove favorite
+      await db.query(
+        'DELETE FROM product_favorites WHERE user_id = $1 AND product_id = $2',
+        [userId, productId]
+      );
+    } else {
+      // Add favorite
+      await db.query(
+        'INSERT INTO product_favorites (user_id, product_id) VALUES ($1, $2)',
+        [userId, productId]
+      );
+      isFavorite = true;
+    }
+
+    return res.json({ success: true, isFavorite });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/products/favorites/me
+exports.getFavorites = async (req, res, next) => {
+  const userId = req.user.userId;
+
+  try {
+    const result = await db.query(
+      'SELECT product_id FROM product_favorites WHERE user_id = $1',
+      [userId]
+    );
+    
+    return res.json({ favorites: result.rows.map(r => r.product_id) });
+  } catch (error) {
     next(error);
   }
 };

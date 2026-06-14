@@ -12,8 +12,8 @@ function refreshCookieOptions() {
   const production = isProduction();
   return {
     httpOnly: true,
-    secure: production,
-    sameSite: production ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
@@ -23,8 +23,8 @@ function clearRefreshCookieOptions() {
   const production = isProduction();
   return {
     httpOnly: true,
-    secure: production,
-    sameSite: production ? 'none' : 'lax',
+    secure: true,
+    sameSite: 'none',
     path: '/',
   };
 }
