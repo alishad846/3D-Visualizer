@@ -10,19 +10,19 @@ let isRedisConnected = false;
 // ----------------------------------------------------------------------
 
 // OPTION 1: Localhost (for Docker Desktop/Local Dev)
-redisClient = createClient({
-  socket: {
-    host: '127.0.0.1',
-    port: 6379
-  }
-});
+// redisClient = createClient({
+//   socket: {
+//     host: '127.0.0.1',
+//     port: 6379
+//   }
+// });
 
 // OPTION 2: Production URL (for Render/Production Deploy)
-/*
+
 redisClient = createClient({
   url: REDIS_URL
 });
-*/
+
 
 // ----------------------------------------------------------------------
 
