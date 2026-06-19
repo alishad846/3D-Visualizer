@@ -14,6 +14,8 @@ CREATE TABLE users (
     locked_until TIMESTAMPTZ NULL,
     preferred_language VARCHAR(10) DEFAULT 'en',
     two_factor_enabled BOOLEAN DEFAULT FALSE,
+    avatar_url TEXT,
+    preferences JSONB DEFAULT '{"language": "English (US)", "alerts": true, "completion": false, "newsletter": true}'::jsonb,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

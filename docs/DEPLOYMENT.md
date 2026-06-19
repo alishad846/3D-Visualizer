@@ -50,7 +50,8 @@ In **scanvista-api** → **Environment**:
 | Variable | Required | Notes |
 |----------|----------|--------|
 | `SUPABASE_URL` | Yes (for uploads) | Supabase project URL |
-| `SUPABASE_KEY` | Yes (for uploads) | Service role key recommended |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes (for uploads) | Use the Supabase service role key here |
+| `SUPABASE_KEY` | Optional fallback | Legacy compatibility only; do not use anon key for server uploads |
 | `JWT_SECRET` | Auto-generated | Keep as generated |
 | `JWT_REFRESH_SECRET` | Auto-generated | Keep as generated |
 | `DATABASE_URL` | From DB | Linked via blueprint |
@@ -138,8 +139,9 @@ cd .. && npm run dev
 
 ### Upload fails
 
-- Set `SUPABASE_URL` and `SUPABASE_KEY` on the API service
+- Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the API service
 - Ensure `models` bucket exists and allows public reads for asset URLs
+- If you only set an anon key, Storage uploads will fail with row-level security errors
 
 ### Database errors on first deploy
 

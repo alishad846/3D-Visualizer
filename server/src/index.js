@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notifications');
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { globalLimiter } = require('./middleware/rateLimiter');
+const { ensureDb } = require('../scripts/ensure-db');
 
 // Register background jobs
 require('./services/purgeService');
@@ -60,6 +61,15 @@ app.use('/api/notifications', notificationRoutes);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`ScanVista API Server running on port ${PORT}`);
+async function startServer() {
+  await ensureDb();
+
+  app.listen(PORT, () => {
+    console.log(`ScanVista API Server running on port ${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Failed to start ScanVista API Server:', error);
+  process.exit(1);
 });

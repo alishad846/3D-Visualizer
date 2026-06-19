@@ -1,4 +1,11 @@
-const { supabase } = require('../config/supabase');
+const {
+  supabase,
+  SUPABASE_SERVICE_ROLE_KEY,
+} = require('../config/supabase');
+
+function hasServiceRoleKey() {
+  return typeof SUPABASE_SERVICE_ROLE_KEY === 'string' && SUPABASE_SERVICE_ROLE_KEY.trim() !== '';
+}
 
 class StorageService {
   constructor() {
@@ -12,6 +19,10 @@ class StorageService {
       console.warn('[StorageService] Supabase client is not configured.');
       return;
     }
+    if (!hasServiceRoleKey()) {
+      console.warn('[StorageService] SUPABASE_SERVICE_ROLE_KEY is not configured. Bucket bootstrap is skipped because anon keys cannot manage Storage buckets.');
+      return;
+    }
     
     try {
       const { data: buckets, error: getBucketsError } = await supabase.storage.listBuckets();
@@ -22,7 +33,6 @@ class StorageService {
         console.log(`[StorageService] Creating bucket '${this.bucketName}'...`);
         const { error: createError } = await supabase.storage.createBucket(this.bucketName, {
           public: true,
-          fileSizeLimit: 157286400 // 150MB
         });
         if (createError) throw createError;
         console.log(`[StorageService] Bucket '${this.bucketName}' created successfully.`);
@@ -36,6 +46,9 @@ class StorageService {
   async uploadFile(file, folder = 'assets') {
     if (!supabase) {
       throw new Error('Supabase client is not configured. Please check your env variables.');
+    }
+    if (!hasServiceRoleKey()) {
+      throw new Error('Supabase Storage uploads require SUPABASE_SERVICE_ROLE_KEY. Anon keys are blocked because Storage RLS will reject inserts.');
     }
 
     await this.ensureBucketExists();
